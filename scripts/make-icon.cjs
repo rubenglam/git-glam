@@ -1,0 +1,12 @@
+const { app, BrowserWindow } = require('electron')
+const fs = require('node:fs')
+const path = require('node:path')
+app.whenReady().then(async () => {
+  const win = new BrowserWindow({ width: 256, height: 256, show: false, transparent: true, frame: false, webPreferences: { offscreen: true } })
+  const svg = fs.readFileSync(path.join(__dirname, '../public/logo.svg'), 'utf8')
+  await win.loadURL('data:text/html,<style>html,body{margin:0;background:transparent}img{width:256px;height:256px;display:block}</style><img src="data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64') + '">')
+  await new Promise(r => setTimeout(r, 500))
+  const image = await win.webContents.capturePage()
+  fs.writeFileSync(path.join(__dirname, '../public/icon.png'), image.toPNG())
+  app.quit()
+})

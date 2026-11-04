@@ -1,0 +1,85 @@
+import React, { useState } from 'react'
+import { IssueTokenForm } from './issue-token.tsx'
+import { DEFAULT_COLOR_TARGETS, PROJECT_ICONS,PROJECT_COLORS, ProjectIcon, folderName, projectName } from './project-icons.tsx'
+import { ArrowLeft, Folder, FolderGit2, GitBranch, PanelLeft, Search, Info, SlidersHorizontal } from 'lucide-react'
+
+const sections = [
+  { id: 'general', label: 'General', icon: SlidersHorizontal },
+  { id: 'graph', label: 'Grafo', icon: GitBranch },
+  { id: 'interface', label: 'Interfaz', icon: PanelLeft },
+  { id: 'about', label: 'Acerca de', icon: Info },
+]
+
+function SwitchRow({ id, title, description, checked, disabled, onChange }: { id: string; title: string; description: string; checked: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
+  return <div className="settings-row"><div className="settings-row-copy"><label htmlFor={id}>{title}</label><p>{description}</p></div><label className="settings-switch"><input id={id} type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)}/><span aria-hidden="true"/></label></div>
+}
+
+function CommandEditor({ project, busy, onSave }) {
+  const [command, setCommand] = useState(project.command || ''), [message, setMessage] = useState(''), [error, setError] = useState('')
+  async function save(event) {
+    event.preventDefault(); setMessage(''); setError('')
+    try { await onSave(project.path, command); setMessage('Comando guardado') }
+    catch (failure) { setError(failure.message || String(failure)) }
+  }
+  return <form className="settings-command-form" onSubmit={save}><label htmlFor="project-command">Comando de PowerShell</label><textarea id="project-command" rows={3} maxLength={4000} value={command} disabled={busy} placeholder="Por ejemplo: code ." onChange={event => { setCommand(event.target.value); setMessage(''); setError('') }}/><p>Se ejecuta en una ventana PowerShell desde el worktree activo. También puedes usar <code>$env:GITGRAPH_PROJECT</code> y <code>$env:GITGRAPH_WORKTREE</code>.</p><p>Ejemplo: <code>code .</code> abre la carpeta actual en VS Code si su comando está instalado. <code>orca open</code> inicia Orca, pero no selecciona el proyecto.</p><div className="settings-command-actions"><button className="settings-save" disabled={busy || command === (project.command || '')} type="submit">Guardar comando</button>{message && <span role="status">{message}</span>}</div>{error && <div className="action-error" role="alert">{error}</div>}</form>
+}
+
+function AppearanceEditor({ project, busy, onSave }) {
+  const [name, setName] = useState(project.name || ''), [icon, setIcon] = useState(project.icon || 'folder-git'), [color, setColor] = useState(project.color || ''), [message, setMessage] = useState(''), [error, setError] = useState('')
+  const [targets, setTargets] = useState(project.colorTargets || DEFAULT_COLOR_TARGETS)
+  const dirty = name.trim() !== (project.name || '') || icon !== (project.icon || 'folder-git') || color !== (project.color || '') || JSON.stringify(targets) !== JSON.stringify(project.colorTargets || DEFAULT_COLOR_TARGETS)
+  const touch = setter => value => { setter(value); setMessage(''); setError('') }
+  async function save(event) {
+    event.preventDefault(); setMessage(''); setError('')
+    try { await onSave(project.path, { name: name.trim() || null, icon: icon === 'folder-git' ? null : icon, color: color || null, colorTargets: targets }); setMessage('Apariencia guardada') }
+    catch (failure) { setError(failure.message || String(failure)) }
+  }
+  return <form className="settings-command-form" onSubmit={save}>
+    <label htmlFor="project-name">Nombre</label><input id="project-name" className="settings-text-input" maxLength={80} value={name} disabled={busy} placeholder={folderName(project.path)} onChange={event => touch(setName)(event.target.value)}/>
+    <label>Icono</label><div className="project-icon-grid" role="radiogroup" aria-label="Icono">{Object.entries(PROJECT_ICONS).map(([id, Icon]) => <button key={id} type="button" role="radio" aria-checked={icon === id} aria-label={id} title={id} className={icon === id ? 'selected' : ''} disabled={busy} onClick={() => touch(setIcon)(id)}><Icon size={16}/></button>)}</div>
+    <label>Color</label><div className="project-color-row" role="radiogroup" aria-label="Color">{PROJECT_COLORS.map(value => <button key={value} type="button" role="radio" aria-checked={color === value} aria-label={'Color ' + value} className={color === value ? 'selected' : ''} style={{ background: value }} disabled={busy} onClick={() => touch(setColor)(value)}/>)}<button type="button" className="tab-color-clear" disabled={busy || !color} onClick={() => touch(setColor)('')}>Sin color</button></div>
+    {[['icon', 'Icono', 'Colorea el icono de la pestaña.'], ['text', 'Texto', 'Colorea el nombre de la pestaña.'], ['border', 'Borde inferior', 'Subraya la pestaña con el color.']].map(([id, title, description]) => <SwitchRow key={id} id={'color-target-' + id} title={title} description={description} checked={targets[id]} disabled={busy || !color} onChange={value => touch(setTargets)({ ...targets, [id]: value })}/>)}
+    <div className="settings-command-actions"><button className="settings-save" disabled={busy || !dirty} type="submit">Guardar apariencia</button>{message && <span role="status">{message}</span>}</div>{error && <div className="action-error" role="alert">{error}</div>}
+  </form>
+}
+
+export function SettingsPage({ onSaveAppearance, onBack, projects, activeProject, defaultProject, onDefault, showRemote, leftOpen, rightOpen, groupTabs, showUngroupedLabel, tabLabelWidth, autoFetchMinutes, busy, onSetting, onSaveCommand, initialSection = 'general' }) {
+  const [section, setSection] = useState(initialSection), [search, setSearch] = useState(''), [commandProject, setCommandProject] = useState(activeProject || projects[0]?.path || '')
+  const [sidebarWidth, setSidebarWidth] = useState(() => { const saved = Number(localStorage.getItem('gitgraph.settingsSidebarWidth')); return saved >= 180 && saved <= 400 ? saved : 230 })
+  const clampWidth = value => Math.min(400, Math.max(180, value))
+  function startResize(event) {
+    event.preventDefault()
+    const startX = event.clientX, startWidth = sidebarWidth
+    let width = startWidth
+    const move = moveEvent => { width = clampWidth(startWidth + moveEvent.clientX - startX); setSidebarWidth(width) }
+    const stop = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); try { localStorage.setItem('gitgraph.settingsSidebarWidth', String(width)) } catch {} }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', stop)
+  }
+  function resizeByKey(event) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    const width = clampWidth(sidebarWidth + (event.key === 'ArrowRight' ? 10 : -10)); setSidebarWidth(width)
+    try { localStorage.setItem('gitgraph.settingsSidebarWidth', String(width)) } catch {}
+  }
+  const query = search.trim().toLocaleLowerCase('es')
+  const matches = (...text) => !query || text.join(' ').toLocaleLowerCase('es').includes(query)
+  const showGeneral = (!query && section === 'general') || (query && matches('general inicio proyecto predeterminado selector de proyectos'))
+  const showGraph = (!query && section === 'graph') || (query && matches('grafo ramas remotas mostrar historial fetch automático sincronizar remoto minutos'))
+  const showInterface = (!query && section === 'interface') || (query && matches('interfaz pestañas agrupar carpeta panel explorador ramas worktrees stashes cambios visibilidad'))
+  const showProjects = (!query && section === 'projects') || (query && matches('proyectos proyecto comandos comando ejecutar terminal powershell ide orca integraciones token acceso github gitlab issues privado api'))
+  const showAbout = (!query && section === 'about') || (query && matches('acerca de about versión licencia git glam'))
+  const projectEntry = projects.find(project => project.path === commandProject) || projects[0]
+  const title = query ? 'Resultados de búsqueda' : section === 'projects' ? (projectEntry ? projectName(projectEntry) : 'Proyectos') : sections.find(item => item.id === section)!.label
+  return <div className="settings-page">
+    <aside className="settings-sidebar" style={{ width: sidebarWidth }}><div className="settings-resizer" role="separator" aria-orientation="vertical" aria-label="Redimensionar panel" aria-valuemin={180} aria-valuemax={400} aria-valuenow={sidebarWidth} tabIndex={0} onPointerDown={startResize} onKeyDown={resizeByKey}/><button className="settings-back" onClick={onBack}><ArrowLeft size={16}/> Volver a la aplicación</button><div className="settings-search-wrap"><label className="settings-search"><Search size={15}/><input aria-label="Buscar ajustes" placeholder="Buscar ajustes" value={search} onChange={event => setSearch(event.target.value)}/></label></div><div className="settings-nav-label">CONFIGURACIÓN</div><nav aria-label="Secciones de ajustes">{sections.map(item => { const Icon = item.icon; return <button key={item.id} className={'settings-nav-item '+(!query && section === item.id ? 'active' : '')} aria-current={!query && section === item.id ? 'page' : undefined} onClick={() => { setSearch(''); setSection(item.id) }}><Icon size={16}/>{item.label}</button> })}</nav><div className="settings-nav-label">PROYECTOS</div><nav aria-label="Proyectos">{projects.map(project => { const current = !query && section === 'projects' && projectEntry?.path === project.path; return <button key={project.path} title={project.path} className={'settings-nav-item '+(current ? 'active' : '')} style={project.color && (project.colorTargets || DEFAULT_COLOR_TARGETS).border ? { boxShadow: `inset 0 -2px 0 ${project.color}` } : undefined} aria-current={current ? 'page' : undefined} onClick={() => { setSearch(''); setCommandProject(project.path); setSection('projects') }}><span style={{ display: 'inline-flex', ...(project.color && (project.colorTargets || DEFAULT_COLOR_TARGETS).icon ? { color: project.color } : {}) }}><ProjectIcon project={project} size={16}/></span><span className="settings-nav-text" style={project.color && (project.colorTargets || DEFAULT_COLOR_TARGETS).text ? { color: project.color } : undefined}>{projectName(project)}</span></button> })}</nav></aside>
+    <section className="settings-content"><div className="settings-content-inner"><header className="settings-title"><h1>{title}</h1><p>{query ? `Opciones que coinciden con «${search.trim()}».` : section === 'general' ? 'Elige cómo quieres empezar a trabajar.' : section === 'graph' ? 'Configura qué referencias aparecen en el historial.' : section === 'interface' ? 'Personaliza los paneles de tu espacio de trabajo.' : section === 'projects' ? 'Ajustes específicos de este proyecto.' : ''}</p></header>
+      {showGeneral && <section className="settings-card"><div className="settings-card-heading"><h2>Inicio</h2><p>Elige qué se muestra al abrir Git Glam.</p></div><div className="settings-row"><div className="settings-row-copy"><label htmlFor="default-project">Proyecto predeterminado</label><p>Ábrelo directamente al iniciar o muestra el selector de proyectos.</p></div><select id="default-project" value={defaultProject || ''} disabled={busy} onChange={event => onDefault(event.target.value || null)}><option value="">Mostrar proyectos</option>{projects.map(project => <option key={project.path} value={project.path}>{project.path.split(/[\\/]/).filter(Boolean).pop() || project.path} — {project.path}</option>)}</select></div></section>}
+      {showGraph && <section className="settings-card"><div className="settings-card-heading"><h2>Historial</h2><p>Opciones de visualización del grafo.</p></div><SwitchRow id="setting-remotes" title="Mostrar ramas remotas" description="Incluye las ramas remotas y sus commits en el grafo." checked={showRemote} disabled={busy} onChange={value => onSetting('showRemote', value)}/><div className="settings-row"><div className="settings-row-copy"><label htmlFor="setting-auto-fetch">Fetch automático</label><p>Descarga periódicamente las novedades de los remotos del proyecto activo para actualizar los contadores ↑ ↓ de cada rama.</p></div><select id="setting-auto-fetch" value={autoFetchMinutes} onChange={event => onSetting('autoFetchMinutes', Number(event.target.value))}>{[[0, 'Desactivado'], [1, 'Cada minuto'], [5, 'Cada 5 minutos'], [10, 'Cada 10 minutos'], [15, 'Cada 15 minutos'], [30, 'Cada 30 minutos'], [60, 'Cada hora']].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></section>}
+      {showInterface && <section className="settings-card"><div className="settings-card-heading"><h2>Paneles</h2><p>Elige qué paneles aparecen junto al grafo.</p></div><SwitchRow id="setting-left" title="Mostrar explorador" description="Muestra las ramas, los worktrees y los stashes a la izquierda." checked={leftOpen} onChange={value => onSetting('leftOpen', value)}/><SwitchRow id="setting-right" title="Mostrar cambios" description="Muestra los archivos con cambios pendientes a la derecha." checked={rightOpen} onChange={value => onSetting('rightOpen', value)}/></section>}
+      {showInterface && <section className="settings-card"><div className="settings-card-heading"><h2>Pestañas</h2><p>Organiza las pestañas de proyectos de la barra superior.</p></div><SwitchRow id="setting-group-tabs" title="Agrupar pestañas por carpeta" description="Agrupa las pestañas según las carpetas que creaste en Proyectos. Clic en el nombre de la carpeta para contraerla y clic derecho para darle color." checked={groupTabs} onChange={value => onSetting('groupTabs', value)}/><SwitchRow id="setting-ungrouped-label" title="Mostrar «Sin carpeta»" description="Muestra el grupo «Sin carpeta» en las pestañas para los proyectos que no están en ninguna carpeta." checked={showUngroupedLabel} disabled={!groupTabs} onChange={value => onSetting('showUngroupedLabel', value)}/><div className="settings-row"><div className="settings-row-copy"><label htmlFor="setting-tab-label-width">Ancho del nombre de carpeta</label><p>Ancho máximo del nombre de la carpeta en las pestañas agrupadas ({tabLabelWidth}px).</p></div><input id="setting-tab-label-width" type="range" min="80" max="400" step="10" value={tabLabelWidth} disabled={!groupTabs} onChange={event => onSetting('tabLabelWidth', Number(event.target.value))}/></div><div className="tab-width-preview" aria-hidden="true"><span className="tab-width-preview-group"><span className="tab-width-preview-label" style={{ maxWidth: tabLabelWidth }}><Folder size={12}/><span>customer-facing-web-applications</span></span><i/><span className="tab-width-preview-tab"><FolderGit2 size={14}/>web-app</span><span className="tab-width-preview-tab"><FolderGit2 size={14}/>api-gateway</span></span></div></section>}
+      {showProjects && (projectEntry ? <><section className="settings-card"><div className="settings-card-heading"><h2>Apariencia</h2><p>Nombre, icono y color de la pestaña del proyecto.</p></div><AppearanceEditor key={projectEntry.path} project={projectEntry} busy={busy} onSave={onSaveAppearance}/></section><section className="settings-card"><div className="settings-card-heading"><h2>Comando del proyecto</h2><p>Configura qué ejecuta el botón de la barra del grafo.</p></div><CommandEditor key={projectEntry.path} project={projectEntry} busy={busy} onSave={onSaveCommand}/></section><section className="settings-card"><div className="settings-card-heading"><h2>Issues</h2><p>Un token por repositorio, necesario para ver los issues de repositorios privados.</p></div><IssueTokenForm key={projectEntry.path} root={projectEntry.path}/></section></> : <section className="settings-card"><p className="settings-command-empty">Añade un proyecto para configurar sus ajustes.</p></section>)}
+      {showAbout && <section className="settings-card"><div className="settings-about"><img src="./logo.svg" width={56} height={56} alt=""/><div><h2>Git Glam</h2><p>Versión {__APP_VERSION__}</p></div></div><p className="settings-about-text">Explorador de historial de Git para Windows: grafo de commits, ramas, cambios, stashes, tags e issues.</p></section>}
+      {!showGeneral && !showAbout && !showGraph && !showInterface && !showProjects && <div className="settings-no-results">No se han encontrado ajustes para esta búsqueda.</div>}
+    </div></section>
+  </div>
+}

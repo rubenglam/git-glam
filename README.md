@@ -1,0 +1,34 @@
+# Git Glam
+
+Explorador de historial Git para Windows, construido con Electron y React. Reutiliza el algoritmo de carriles de `orca-git-graph` y adapta la paleta y los paneles oscuros de Fenix.
+
+## Requisitos
+
+Node.js 20 o posterior, pnpm y Git disponible en el PATH. En Windows, instala las dependencias con `pnpm install`.
+
+```sh
+pnpm dev              # desarrollo
+pnpm build            # compilación de la interfaz
+pnpm start            # abrir la interfaz compilada
+pnpm package:win      # crear instalador de Windows en release/
+```
+
+Al iniciar aparece una pantalla para seleccionar uno de los proyectos guardados o añadir un repositorio. Para abrir un proyecto directamente al iniciar, márcalo como **predeterminado** en esa pantalla; vuelve a pulsar la estrella para desactivarlo. El proyecto predeterminado recuerda su último worktree seleccionado. Puedes volver al selector con la pestaña **Proyectos** y cambiar entre proyectos mediante las pestañas superiores.
+
+Arrastra las pestañas de los proyectos para cambiar su orden; también puedes enfocarlas y usar `Alt` con las flechas izquierda o derecha. La pestaña **Proyectos** permanece fija y el orden se conserva al reiniciar.
+
+Los proyectos se guardan entre sesiones. Puedes quitar uno de la lista sin borrar sus archivos. Si un proyecto ya no está disponible, permanece en la lista y se muestra un error al abrirlo; si era el predeterminado, se muestra el selector.
+
+En la pantalla de proyectos puedes crear carpetas para agruparlos y elegir una carpeta para cada proyecto. Las carpetas son una organización dentro de la aplicación y no mueven archivos. Al eliminar una carpeta, sus proyectos vuelven a **Sin carpeta**; la organización se conserva entre sesiones.
+
+El panel izquierdo muestra las ramas locales, los worktrees y los stashes del repositorio; seleccionar un worktree cambia el historial y el estado mostrados. Al seleccionar un stash se muestra su diff de trabajo frente al commit base, sin incluir una comparación independiente del índice ni los archivos sin seguimiento. El panel derecho enumera los archivos con cambios pendientes. Los botones de la barra superior permiten ocultar o mostrar cada panel. Arrastra los separadores para ajustar su ancho; también puedes enfocarlos y usar las flechas, Inicio y Fin.
+
+Abre **Ajustes** desde el icono de la barra superior o el menú Archivo. Puedes elegir el proyecto predeterminado, mostrar u ocultar ramas remotas y cambiar la visibilidad de los paneles; estas preferencias se guardan entre sesiones y se sincronizan con los controles de la vista principal.
+
+En **Ajustes → Comandos** puedes guardar un comando de PowerShell para cada proyecto. El botón **Comando** del grafo lo ejecuta en una ventana de PowerShell desde el worktree seleccionado; las variables `$env:GITGRAPH_PROJECT` y `$env:GITGRAPH_WORKTREE` contienen las rutas del proyecto y del worktree. Por ejemplo, `code .` abre el worktree en VS Code si su comando está disponible. `orca open` inicia Orca, pero no selecciona automáticamente el proyecto. Los comandos se guardan en el archivo local de proyectos y solo se ejecutan al pulsar el botón.
+
+La aplicación muestra hasta 500 commits de las refs locales, incluidas ramas remotas y etiquetas, sus conexiones y el diff del commit seleccionado frente a su primer padre. La búsqueda y la selección de rama atenúan los demás commits para conservar la topología. Actualizar vuelve a leer Git.
+
+Con clic derecho sobre un commit (o `Shift+F10`) puedes crear una etiqueta ligera o una rama, hacer checkout con HEAD separado, cherry-pick, revert, merge, rebase o reset, y copiar su hash o descripción. Las operaciones muestran un diálogo de confirmación; en un merge se elige el padre para cherry-pick o revert. Reset permite elegir soft, mixed o hard. La aplicación muestra los errores de Git y actualiza el estado después de cada intento. Si una operación produce conflictos, Git puede dejarla en curso para resolverla desde otra herramienta o la terminal. El rebase reescribe el historial y reset hard puede descartar cambios rastreados y eliminar archivos sin seguimiento que impidan escribir los archivos del commit.
+
+La aplicación no ejecuta fetch automáticamente. El diff puede mostrar un error si supera el límite de 16 MiB o tarda más de 15 segundos. Requiere Git local y no sigue automáticamente la selección de Orca. El código de cálculo del grafo procede de `orca-git-graph`, distribuido bajo la licencia MIT incluida.

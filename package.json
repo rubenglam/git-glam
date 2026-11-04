@@ -1,0 +1,52 @@
+{
+  "name": "git-graph-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Git history explorer for Windows",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "pnpm build:electron && concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
+    "build": "vite build",
+    "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --target=node22 --external:electron --outdir=dist-electron --out-extension:.js=.cjs",
+    "typecheck": "tsc",
+    "test": "node --test test/*.test.ts",
+    "start": "pnpm build:electron && electron .",
+    "package:win": "vite build && pnpm build:electron && electron-builder --win"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vite": "^6.0.7",
+    "wait-on": "^8.0.2"
+  },
+  "build": {
+    "appId": "com.rubenglam.gitgraph",
+    "productName": "Git Glam",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "public/icon.png",
+      "target": "nsis",
+      "signAndEditExecutable": false
+    }
+  }
+}
