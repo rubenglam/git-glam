@@ -38,7 +38,7 @@
     "appId": "com.rubenglam.gitgraph",
     "productName": "Git Glam",
     "directories": {
-      "output": "release"
+      "output": "../project-git-branch-release"
     },
     "files": [
       "dist/**/*",
@@ -47,8 +47,7 @@
     ],
     "win": {
       "icon": "public/icon.png",
-      "target": "nsis",
-      "signAndEditExecutable": false
+      "target": "nsis"
     }
   }
 }

@@ -131,6 +131,8 @@ export interface RenderOptions {
 
 /** Bridge exposed by `electron/preload.ts` through `contextBridge`; IPC results are untyped JSON. */
 export interface GitGraphApi {
+  isPackaged(): Promise<boolean>
+  onRestored(callback: () => void): () => void
   openFolder(path: string): Promise<void>
   open(): Promise<any>
   load(path: string, showRemote?: boolean, limit?: number): Promise<any>

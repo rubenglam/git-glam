@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Archive, Bot, CircleDot, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, File, Folder, FolderGit2, FolderOpen, FolderPlus, GitBranch, GitMerge, Cloud, CloudDownload, Ellipsis, LoaderCircle, PanelLeft, PanelRight, Pencil, Plus, RefreshCw, Search, Settings, SquareTerminal, Star, Tag, Trash2, X } from 'lucide-react'
+import { Archive, Bot, CircleAlert, CircleCheck, CircleDot, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, File, Folder, FolderGit2, FolderOpen, FolderPlus, GitBranch, GitMerge, Cloud, CloudDownload, Ellipsis, LoaderCircle, PanelLeft, PanelRight, Pencil, Plus, RefreshCw, Search, Settings, SquareTerminal, Star, Tag, Trash2, X } from 'lucide-react'
 import { layout, orderHistory } from './graph-layout.ts'
 import type { DiffState, GraphRow } from './types.ts'
 import { graphSegments } from './graph-segments.ts'
@@ -74,7 +74,7 @@ function Graph({ row, head, rowHeight }) {
 function RefLabel({ name, lane, synced, onContext, onOpen }) {
   const tag = name.startsWith('tag: ')
   const label = name.replace(/^HEAD -> /, '').replace(/^tag: /, '')
-  return <span className="ref" onClick={tag || !onOpen ? undefined : event => { event.stopPropagation(); if (event.detail >= 2) { event.preventDefault(); onOpen(name.replace(/^HEAD -> /, '')) } }} onContextMenu={tag || !onContext ? undefined : event => { event.preventDefault(); event.stopPropagation(); onContext(name.replace(/^HEAD -> /, ''), event) }}><span className="ref-icon" style={{ background: color(lane) }}>{tag ? <Tag size={11}/> : <GitBranch size={11}/>}</span><span className="ref-name">{label}</span>{synced && <span className="ref-remote" title={`También en ${synced}`}><Cloud size={11}/>{synced.split('/')[0]}</span>}</span>
+  return <span className="ref" onClick={tag || !onOpen ? undefined : event => { event.stopPropagation(); if (event.detail >= 2) { event.preventDefault(); onOpen(name.replace(/^HEAD -> /, '')) } }} onContextMenu={tag || !onContext ? undefined : event => { event.preventDefault(); event.stopPropagation(); onContext(name.replace(/^HEAD -> /, ''), event) }}><span className="ref-icon" style={{ background: color(lane) }}>{tag ? <Tag size={11}/> : <GitBranch size={11}/>}</span><span className="ref-name">{label}</span>{synced && <span className="ref-remote" title={`También en ${synced}`}><Cloud size={11}/><span className="ref-remote-name">{synced.split('/')[0]}</span></span>}</span>
 }
 
 interface CommitRowProps {
@@ -210,8 +210,8 @@ function SyncBar({ repo, busy, syncing, onSync, onPickBranch }) {
   const pushTitle = info ? `Push a ${info.upstream}` + (info.ahead ? ` (${info.ahead} por enviar)` : '') : 'Push (publicará la rama)'
   return <div className="scm-row">
     <button className="branch-button" title="Cambiar de rama" aria-label={'Rama actual: ' + repo.branch + '. Cambiar de rama'} disabled={busy} onClick={onPickBranch}><GitBranch size={15}/><strong>{repo.branch}</strong><ChevronDown size={14}/></button>
-    <button className="sync-icon" title={pullTitle} aria-label="Pull" disabled={busy || detached} onClick={() => onSync('pull')}>{icon('pull', ArrowDown)}{info?.behind > 0 && <b>{info.behind}</b>}</button>
-    <button className="sync-icon" title={pushTitle} aria-label="Push" disabled={busy || detached} onClick={() => onSync('push')}>{icon('push', ArrowUp)}{info?.ahead > 0 && <b>{info.ahead}</b>}</button>
+    <button className="sync-icon" title={pullTitle} aria-label={pullTitle} disabled={busy || detached} onClick={() => onSync('pull')}>{icon('pull', ArrowDown)}{info?.behind > 0 && <b aria-hidden="true">{info.behind > 99 ? '99+' : info.behind}</b>}</button>
+    <button className="sync-icon" title={pushTitle} aria-label={pushTitle} disabled={busy || detached} onClick={() => onSync('push')}>{icon('push', ArrowUp)}{info?.ahead > 0 && <b aria-hidden="true">{info.ahead > 99 ? '99+' : info.ahead}</b>}</button>
     <div className="sync-menu-wrap" ref={box}>
       <button className="sync-icon" title="Más acciones" aria-label="Más acciones" aria-haspopup="menu" aria-expanded={menu} disabled={busy} onClick={() => setMenu(!menu)}>{syncing === 'fetch' ? <LoaderCircle className="spin" size={15}/> : <Ellipsis size={16}/>}</button>
       {menu && <div className="sync-menu" role="menu">
@@ -368,6 +368,7 @@ function App() {
   const closeFileMenu = useCallback(() => setFileMenu(null), [])
   const [commitMenu, setCommitMenu] = useState<any>(null), [action, setAction] = useState<any>(null), [actionError, setActionError] = useState<string | null>(''), [notice, setNotice] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [checkoutVisible, setCheckoutVisible] = useState(false), checkoutRunning = useRef(false)
   const [manage, setManage] = useState<any>(null), [manageMenu, setManageMenu] = useState<any>(null), [tags, setTags] = useState<any[]>([]), [tagsOpen, setTagsOpen] = useState(false), [issuesOpen, setIssuesOpen] = useState(false), [agentOpen, setAgentOpen] = useState(false)
   const closeManageMenu = useCallback(() => setManageMenu(null), [])
   const settingVersions = useRef({}), [loadingMore, setLoadingMore] = useState(false), loadMoreRef = useRef(false), loadMoreFailed = useRef(-1)
@@ -425,14 +426,15 @@ function App() {
   }
   const openManageMenu = (items, event) => setManageMenu({ items, x: event.clientX, y: event.clientY })
   const openRef = useCallback(async name => {
-    if (!repo || name === repo.branch) return
+    if (!repo || busy || checkoutRunning.current || name === repo.branch) return
     try {
       const remote = repo.remotes.some(item => name.startsWith(item + '/'))
       if (remote && name.slice(name.indexOf('/') + 1) === repo.branch) return
+      checkoutRunning.current = true; setBusy(true); setError(''); setCheckoutVisible(true)
       await window.gitGraph.switchBranch(repo.root, (remote ? 'refs/remotes/' : 'refs/heads/') + name)
       await load()
-    } catch (e) { setError(e.message || String(e)) }
-  }, [repo, load])
+    } catch (e) { setError(e.message || String(e)) } finally { checkoutRunning.current = false; setBusy(false); setCheckoutVisible(false) }
+  }, [repo, busy, load])
   const openRefMenu = useCallback(async (name, event) => {
     if (!repo) return
     const point = { clientX: event.clientX, clientY: event.clientY }
@@ -718,6 +720,22 @@ function App() {
   }, [])
   const latest = useRef<any>({})
   latest.current = { repo, busy, showRemote, activeProject }
+  useEffect(() => window.gitGraph.onRestored(async () => {
+    const before = latest.current
+    if (!before.repo) return
+    const root = before.repo.root, request = projectRequest.current
+    try {
+      await window.gitGraph.fetch(root)
+      const now = latest.current
+      if (request !== projectRequest.current || now.busy || now.repo?.root !== root) return
+      const data = await window.gitGraph.load(root, now.showRemote, now.repo.commits.length)
+      const after = latest.current
+      if (request !== projectRequest.current || after.busy || after.repo?.root !== root) return
+      projectCache.current.set(after.activeProject, { repo: data, showRemote: after.showRemote }); setRepo(data); setSelected(old => updatedSelection(data, old))
+    } catch (e) {
+      if (latest.current.repo?.root === root) setError('No se pudo hacer fetch al restaurar: ' + (e.message || String(e)))
+    }
+  }), [])
   useEffect(() => {
     if (!autoFetchMinutes || !repo || showProjects || showSettings) return
     const root = repo.root
@@ -782,7 +800,7 @@ function App() {
     </>}
     </section>
     {rightOpen && <PanelSeparator panel="changes" side={panelSide("changes")} order={panelPosition("changes") + (panelSide("changes") === "left" ? 1 : -1)} width={displayedRight} maxWidth={maxRight} onResize={value => setRightWidth(clamp(value, PANEL_MIN, maxRight))}/>}
-    {rightOpen && <aside id="changes-panel" className="right-panel" style={{ width: displayedRight, order: panelPosition('changes') }}><div className="panel-header">CONTROL DE CÓDIGO FUENTE<button className={'tool-button '+(busy?'spin':'')} title="Actualizar (F5)" aria-label="Actualizar cambios" disabled={!repo || busy} onClick={() => load()}><RefreshCw size={16}/></button></div>{repo ? <><SyncBar repo={repo} busy={busy} syncing={syncing} onSync={syncAction} onPickBranch={() => setPickerOpen(true)}/><CommitBox dir={repo.root} sync={repo.sync?.[repo.branch]} syncing={syncing === 'sync'} onSync={() => syncAction('sync')} changes={repo.changes} publishedTo={publishedTo} disabled={busy} onError={setError} onCommitted={async (_amended, pushed) => { await load(); setNotice(pushed ? 'Commit creado y enviado' : 'Commit creado') }}/><ChangesList onContext={(path, x, y) => setFileMenu({ path, x, y })} changes={repo.changes} selected={selectedChange} busy={busy} onPick={change => { setSelectedChange(change); setSelected(null) }} onStage={paths => changeAction(root => window.gitGraph.stage(root, paths))} onUnstage={paths => changeAction(root => window.gitGraph.unstage(root, paths))} onDiscard={paths => setManage({ kind: 'discard', paths })}/></> : <p className="panel-empty">{loadingProject ? 'Cargando cambios…' : 'Abre un repositorio para ver sus cambios.'}</p>}</aside>}
+    {rightOpen && <aside id="changes-panel" className="right-panel" style={{ width: displayedRight, order: panelPosition('changes') }}><div className="panel-header">CONTROL DE CÓDIGO FUENTE<button className={'tool-button '+(busy?'spin':'')} title="Actualizar (F5)" aria-label="Actualizar cambios" disabled={!repo || busy} onClick={() => load()}><RefreshCw size={16}/></button></div>{repo ? <><SyncBar repo={repo} busy={busy} syncing={syncing} onSync={syncAction} onPickBranch={() => setPickerOpen(true)}/><CommitBox key={repo.root} dir={repo.root} sync={repo.sync?.[repo.branch]} syncing={syncing === 'sync'} onSync={() => syncAction('sync')} changes={repo.changes} publishedTo={publishedTo} disabled={busy} onError={setError} onCommitted={async (_amended, pushed) => { await load(); setNotice(pushed ? 'Commit creado y enviado' : 'Commit creado') }}/><ChangesList onContext={(path, x, y) => setFileMenu({ path, x, y })} changes={repo.changes} selected={selectedChange} busy={busy} onPick={change => { setSelectedChange(change); setSelected(null) }} onStage={paths => changeAction(root => window.gitGraph.stage(root, paths))} onUnstage={paths => changeAction(root => window.gitGraph.unstage(root, paths))} onDiscard={paths => setManage({ kind: 'discard', paths })}/></> : <p className="panel-empty">{loadingProject ? 'Cargando cambios…' : 'Abre un repositorio para ver sus cambios.'}</p>}</aside>}
     </div>
     <footer><span title={repo?.root || loadingProject}>{repo?.root || loadingProject || 'Git Glam'}</span>{repo && <span>{repo.branch} · {repo.changes.length} cambios pendientes · {repo.commits.length}{repo.hasMore ? '+' : ''} commits cargados</span>}</footer>
     {pickerOpen && repo && <BranchPicker dir={repo.root} onClose={() => setPickerOpen(false)} onManage={(branch, event) => { setPickerOpen(false); openManageMenu(branchItems(branch, { current: repo.branch, tracking: Boolean(repo.sync?.[branch.name]) }, setManage), event) }} onDone={() => { setPickerOpen(false); load() }}/>}
@@ -794,8 +812,11 @@ function App() {
     {fileMenu && <FileMenu menu={fileMenu} onClose={closeFileMenu} onHistory={(path, rev) => { setFileMenu(null); setFileHistory({ path, rev }) }}/>}
     {fileHistory && repo && <FileHistoryDialog root={repo.root} path={fileHistory.path} rev={fileHistory.rev} formatDate={date} onClose={() => setFileHistory(null)}/>}
     {action && <CommitActionDialog key={action.type + action.commit.hash} action={action} busy={busy} error={actionError} onCancel={() => setAction(null)} onRun={executeCommitAction}/>}
-    {notice && <div className="action-success" role="status"><span>{notice}</span><button aria-label="Cerrar aviso" onClick={() => setNotice('')}>×</button></div>}
-    {error && <div className="error" role="alert">{error}<button onClick={() => setError('')}>×</button></div>}
+    {checkoutVisible && <div className="checkout-progress" role="status" aria-live="polite"><div><RefreshCw className="spin" size={22} aria-hidden="true"/><span>Cambiando de rama…</span></div><button type="button" onClick={() => setCheckoutVisible(false)}>Cerrar</button></div>}
+    {(notice || error) && <div className="notifications">
+      {notice && <div className="notification notification-success" role="status"><CircleCheck className="notification-icon" size={20} aria-hidden="true"/><span className="notification-message">{notice}</span><button type="button" aria-label="Cerrar aviso de éxito" onClick={() => setNotice('')}><X size={16} aria-hidden="true"/></button></div>}
+      {error && <div className="notification notification-error" role="alert"><CircleAlert className="notification-icon" size={20} aria-hidden="true"/><span className="notification-message">{error}</span><button type="button" aria-label="Cerrar aviso de error" onClick={() => setError('')}><X size={16} aria-hidden="true"/></button></div>}
+    </div>}
   </main>
 }
 createRoot(document.getElementById('root')!).render(<App />)

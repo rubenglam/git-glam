@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('gitGraph', {
+  isPackaged: () => ipcRenderer.invoke('app:is-packaged'),
+  onRestored: callback => { const listener = () => callback(); ipcRenderer.on('app:restored', listener); return () => ipcRenderer.removeListener('app:restored', listener) },
   open: () => ipcRenderer.invoke('repo:open'),
   openFolder: path => ipcRenderer.invoke('repo:open-folder', path),
   load: (path, showRemote, limit) => ipcRenderer.invoke('repo:load', path, showRemote, limit),

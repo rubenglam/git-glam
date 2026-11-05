@@ -17,6 +17,9 @@ import { createTokenStore, repoKey } from './tokens.ts'
 import { parseNumstat } from './commit-files.ts'
 import * as fileHistory from './file-history.ts'
 import { parseTracking, fetchRepo, pullRepo, pushRepo } from './sync.ts'
+// Avoid the Windows GPU compositor flash when restoring a minimized window.
+if (process.platform === 'win32') app.disableHardwareAcceleration()
+
 const run = promisify(execFile)
 const git = async (cwd, args) => (await run('git', args, { cwd, timeout: 15000, maxBuffer: 16 * 1024 * 1024, windowsHide: true })).stdout
 
@@ -73,6 +76,7 @@ async function loadRepo(dir, showRemote = true, limit = PAGE_SIZE) {
 app.whenReady().then(() => {
   const projects = createProjectStore(path.join(app.getPath('userData'), 'projects.json'))
   const settings = createSettingsStore(path.join(app.getPath('userData'), 'settings.json'))
+  ipcMain.handle('app:is-packaged', () => app.isPackaged)
   ipcMain.handle('settings:read', async (event) => { const state = await settings.read(); BrowserWindow.fromWebContents(event.sender)?.setTitleBarOverlay({ color: state.theme === 'light' ? '#f5f5f5' : '#1c1d21', symbolColor: state.theme === 'light' ? '#333333' : '#cccccc' }); return state })
   ipcMain.handle('settings:set', async (event, key, value) => { const state = await settings.set(key, value); if (key === 'theme') BrowserWindow.fromWebContents(event.sender)?.setTitleBarOverlay({ color: state.theme === 'light' ? '#f5f5f5' : '#1c1d21', symbolColor: state.theme === 'light' ? '#333333' : '#cccccc' }); return state })
   ipcMain.handle('projects:list', () => projects.list())
@@ -241,6 +245,7 @@ app.whenReady().then(() => {
   ipcMain.handle('repo:file-blame', (_event, dir, file, rev) => fileHistory.fileBlame(dir, file, rev))
   // Leave the last pixel of the 36px app bar outside the native overlay so its bottom border remains visible.
   const win = new BrowserWindow({ width: 1440, height: 900, minWidth: 900, minHeight: 600, backgroundColor: '#1e1e1e', icon: path.join(__dirname, app.isPackaged ? '../dist/icon.png' : '../public/icon.png'), title: 'Git Glam', autoHideMenuBar: true, titleBarStyle: 'hidden', titleBarOverlay: { color: '#1c1d21', symbolColor: '#cccccc', height: 35 }, webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } })
+  win.on('restore', () => win.webContents.send('app:restored'))
   if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) win.loadURL(process.env.VITE_DEV_SERVER_URL)
   else if (!app.isPackaged && process.argv.includes('--dev')) win.loadURL('http://127.0.0.1:5173')
   else win.loadFile(path.join(__dirname, '../dist/index.html'))
