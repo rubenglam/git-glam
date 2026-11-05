@@ -171,25 +171,29 @@ async function changesForMessage(dir) {
 
 const SYSTEM = 'Eres un generador de mensajes de commit. Recibes un diff de git por la entrada estándar. Responde SOLO con el mensaje de commit en formato Conventional Commits (tipo(ámbito opcional): resumen en imperativo, máximo 72 caracteres), opcionalmente seguido de una línea en blanco y un cuerpo breve. Sin comillas, sin bloques de código, sin explicaciones. Escribe el mensaje en inglés.'
 
-function runClaude(input: string): Promise<string> {
+function runClaude(input: string, signal?: AbortSignal): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     const child = spawn('claude', ['-p', '--model', 'haiku', '--tools', '', '--no-session-persistence', '--system-prompt', SYSTEM], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
     let out = '', err = ''
+    const abort = () => child.kill()
+    signal?.addEventListener('abort', abort, { once: true })
+    if (signal?.aborted) abort()
     const timer = setTimeout(() => { child.kill(); reject(new Error('La generación ha tardado demasiado')) }, 60000)
     child.stdout.on('data', chunk => { out += chunk })
     child.stderr.on('data', chunk => { err += chunk })
     child.on('error', (error: NodeJS.ErrnoException) => { clearTimeout(timer); reject(new Error(error.code === 'ENOENT' ? 'No se encontró la CLI «claude». Instálala e inicia sesión para generar mensajes.' : error.message)) })
-    child.on('close', code => { clearTimeout(timer); code === 0 ? resolve(out) : reject(new Error(err.trim() || `claude terminó con código ${code}`)) })
+    child.on('close', code => { clearTimeout(timer); signal?.removeEventListener('abort', abort); code === 0 ? resolve(out) : reject(new Error(err.trim() || `claude terminó con código ${code}`)) })
     child.stdin.on('error', () => {})
     child.stdin.end(input)
   })
 }
 
-async function generateCommitMessage(dir, runner: (input: string) => Promise<string> = runClaude) {
+async function generateCommitMessage(dir, runner: (input: string, signal?: AbortSignal) => Promise<string> = runClaude, signal?: AbortSignal) {
   assertDir(dir)
   const changes = await changesForMessage(dir)
+  if (signal?.aborted) throw new Error('Generaci�n cancelada')
   if (!changes.trim()) throw new Error('No hay cambios para describir')
-  const message = (await runner(changes)).trim().replace(/^```\w*\n?|\n?```$/g, '').trim()
+  const message = (await runner(changes, signal)).trim().replace(/^```\w*\n?|\n?```$/g, '').trim()
   if (!message) throw new Error('La IA no devolvió ningún mensaje')
   return message
 }

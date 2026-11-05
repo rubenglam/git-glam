@@ -73,8 +73,8 @@ async function loadRepo(dir, showRemote = true, limit = PAGE_SIZE) {
 app.whenReady().then(() => {
   const projects = createProjectStore(path.join(app.getPath('userData'), 'projects.json'))
   const settings = createSettingsStore(path.join(app.getPath('userData'), 'settings.json'))
-  ipcMain.handle('settings:read', () => settings.read())
-  ipcMain.handle('settings:set', (_event, key, value) => settings.set(key, value))
+  ipcMain.handle('settings:read', async (event) => { const state = await settings.read(); BrowserWindow.fromWebContents(event.sender)?.setTitleBarOverlay({ color: state.theme === 'light' ? '#f5f5f5' : '#1c1d21', symbolColor: state.theme === 'light' ? '#333333' : '#cccccc' }); return state })
+  ipcMain.handle('settings:set', async (event, key, value) => { const state = await settings.set(key, value); if (key === 'theme') BrowserWindow.fromWebContents(event.sender)?.setTitleBarOverlay({ color: state.theme === 'light' ? '#f5f5f5' : '#1c1d21', symbolColor: state.theme === 'light' ? '#333333' : '#cccccc' }); return state })
   ipcMain.handle('projects:list', () => projects.list())
   ipcMain.handle('projects:status', async (_event, paths) => {
     if (!Array.isArray(paths) || paths.length > 200 || !paths.every(item => typeof item === 'string')) throw new Error('Proyectos no válidos')
@@ -153,6 +153,12 @@ app.whenReady().then(() => {
     return projects.remove(project)
   })
   ipcMain.handle('repo:open', async () => { const result = await dialog.showOpenDialog({ properties: ['openDirectory'] }); return result.canceled ? null : loadRepo(result.filePaths[0]) })
+  ipcMain.handle('repo:open-folder', async (_event, dir) => {
+    if (typeof dir !== 'string') throw new Error('Ruta no válida')
+    const root = (await git(dir, ['rev-parse', '--show-toplevel'])).trim()
+    const error = await shell.openPath(root)
+    if (error) throw new Error(error)
+  })
   ipcMain.handle('repo:load', (_event, dir, showRemote, limit) => { if (typeof dir !== 'string') throw new Error('Ruta no válida'); return loadRepo(dir, showRemote !== false, limit) })
   ipcMain.handle('repo:history', (_event, dir, showRemote, limit) => { if (typeof dir !== 'string') throw new Error('Ruta no válida'); return loadHistory(dir, showRemote !== false, pageLimit(limit)) })
   ipcMain.handle('repo:commit-action', (_event, dir, request) => runCommitAction(dir, request))
@@ -195,6 +201,8 @@ app.whenReady().then(() => {
   ipcMain.handle('tokens:set', async (_event, dir, value) => tokenStore.set(await repoKey(dir), value))
   ipcMain.handle('repo:forge-info', (_event, dir) => issues.forgeInfo(dir))
   ipcMain.handle('repo:forge-list', async (_event, dir, kind, options) => issues.listResource(dir, kind, { state: options?.state, filters: options?.filters }, fetch, await tokenStore.get(await repoKey(dir))))
+  ipcMain.handle('repo:forge-comment', async (_event, dir, kind, id, body) => issues.createComment(dir, kind, id, body, fetch, await tokenStore.get(await repoKey(dir))))
+  ipcMain.handle('repo:forge-detail', async (_event, dir, kind, id) => issues.resourceDetail(dir, kind, id, fetch, await tokenStore.get(await repoKey(dir))))
   ipcMain.handle('repo:forge-facets', async (_event, dir, kind) => issues.listFacets(dir, kind, fetch, await tokenStore.get(await repoKey(dir))))
   ipcMain.handle('app:open-issue', (_event, url) => {
     if (typeof url !== 'string' || !/^https:\/\//.test(url)) throw new Error('Enlace no válido')
@@ -211,7 +219,16 @@ app.whenReady().then(() => {
     return id
   })
   ipcMain.handle('agent:cancel', (_event, id) => { agentRuns.get(id)?.cancel() })
-  ipcMain.handle('repo:generate-message', (_event, dir) => branchesCommit.generateCommitMessage(dir))
+  const messageRuns = new Map<string, AbortController>()
+  ipcMain.handle('repo:generate-message', async (event, dir, id) => {
+    if (typeof id !== 'string' || !/^[\w-]{6,64}$/.test(id)) throw new Error('Identificador no v�lido')
+    const key = `${event.sender.id}:${id}`
+    if (messageRuns.has(key)) throw new Error('Generaci�n ya iniciada')
+    const controller = new AbortController()
+    messageRuns.set(key, controller)
+    try { return await branchesCommit.generateCommitMessage(dir, undefined, controller.signal) } finally { messageRuns.delete(key) }
+  })
+  ipcMain.handle('repo:cancel-message', (event, id) => { messageRuns.get(`${event.sender.id}:${id}`)?.abort() })
   ipcMain.handle('repo:diff', async (_event, dir, hash) => {
     if (typeof dir !== 'string' || !/^[a-f0-9]{40,64}$/i.test(hash)) throw new Error('Commit no válido')
     return git(dir, ['-c', 'core.quotepath=false', 'show', '--format=', '--no-ext-diff', '--no-textconv', '--stat', '--patch', '--first-parent', hash, '--']) + await stash.stashExtras(dir, hash, ['--stat', '--patch'])

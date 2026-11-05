@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { IssueTokenForm } from './issue-token.tsx'
 import { FilterMenu, isFilterMenuOpen } from './filter-menu.tsx'
-import { CircleCheck, CircleDot, CircleMinus, CircleX, Flag, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, KeyRound, LoaderCircle, MessageSquare, RefreshCw, Search, X } from 'lucide-react'
+import { ArrowLeft, ExternalLink, CircleCheck, CircleDot, CircleMinus, CircleX, Flag, GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft, KeyRound, LoaderCircle, MessageSquare, RefreshCw, Search, X } from 'lucide-react'
 
 const STATES = [['open', 'Abiertos'], ['closed', 'Cerrados'], ['all', 'Todos']]
-// `github` sections only exist for GitHub remotes; `states` says whether the open/closed filter applies.
+// `states` says whether the open/closed filter applies.
 const SECTIONS = [
   { id: 'issues', label: 'Issues', icon: CircleDot, states: true, empty: 'No hay issues.' },
-  { id: 'pulls', label: 'Pull requests', icon: GitPullRequest, states: true, github: true, empty: 'No hay pull requests.' },
-  { id: 'milestones', label: 'Milestones', icon: Flag, states: true, github: true, empty: 'No hay milestones.' },
-  { id: 'runs', label: 'Actions', icon: CircleCheck, states: false, github: true, empty: 'No hay ejecuciones de workflows.' },
+  { id: 'pulls', label: 'Pull requests', icon: GitPullRequest, states: true, empty: 'No hay pull requests.' },
+  { id: 'milestones', label: 'Milestones', icon: Flag, states: true, empty: 'No hay milestones.' },
+  { id: 'runs', label: 'Actions', icon: CircleCheck, states: false, empty: 'No hay ejecuciones de workflows.' },
 ]
 
 const options = list => list.map(([value, label]) => ({ value, label }))
@@ -75,7 +77,7 @@ const ROWS = {
     const total = milestone.open + milestone.closed, percent = total ? Math.round(milestone.closed / total * 100) : 0
     return {
       key: milestone.number, text: `${milestone.title} ${milestone.description}`,
-      body: <><Flag size={17} className={'issue-' + milestone.state}/><span className="issue-main"><b>{milestone.title}</b><small>{milestone.description || (milestone.dueOn ? '' : 'Sin fecha límite')}{milestone.dueOn ? `${milestone.description ? ' · ' : ''}vence el ${date(milestone.dueOn)}` : ''}</small></span><span className="milestone-progress" title={`${percent}% completado`}><span className="milestone-bar"><i style={{ width: percent + '%' }}/></span><small>{milestone.open} abiertos · {milestone.closed} cerrados</small></span></>,
+      body: <><Flag size={17} className={'issue-' + milestone.state}/><span className="issue-main"><b>{milestone.title}</b><small>{milestone.description || (milestone.dueOn ? '' : 'Sin fecha límite')}{milestone.dueOn ? `${milestone.description ? ' · ' : ''}vence el ${date(milestone.dueOn)}` : ''}</small></span>{milestone.open != null && <span className="milestone-progress" title={`${percent}% completado`}><span className="milestone-bar"><i style={{ width: percent + '%' }}/></span><small>{milestone.open} abiertos · {milestone.closed} cerrados</small></span>}</>,
     }
   },
   runs: run => ({
@@ -109,21 +111,72 @@ export const clearForgeCache = root => { for (const key of [...cache.keys()]) if
 export function prefetchForge(root) {
   fetchInfo(root).then(info => {
     for (const item of SECTIONS) {
-      if (item.github && info?.provider !== 'github') continue
       fetchList(root, item.id, 'open', {}, false).catch(() => {})
     }
   }, () => {})
 }
 
-// Large modal listing the repository's issues and, for GitHub remotes, pull requests, milestones and workflow runs.
+function ForgeMarkdown({ text }) {
+  return <div className="forge-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+    a: ({ href, children }) => href && /^https:\/\//i.test(href) ? <a href={href} onClick={event => { event.preventDefault(); window.gitGraph.openIssue(href).catch(() => {}) }}>{children}</a> : <span>{children}</span>,
+    img: ({ alt }) => <span className="forge-image-placeholder">[Imagen: {alt || 'sin descripción'}]</span>,
+    input: ({ checked }) => <input type="checkbox" checked={checked} disabled readOnly/>,
+  }}>{text}</ReactMarkdown></div>
+}
+
+function ForgeDetail({ root, section, item, onBack }) {
+  const [detail, setDetail] = useState<any>(null), [error, setError] = useState(''), [attempt, setAttempt] = useState(0)
+  const [comment, setComment] = useState(''), [commentError, setCommentError] = useState(''), [sending, setSending] = useState(false)
+  async function sendComment(event) {
+    event.preventDefault()
+    if (sending || !comment.trim()) return
+    setSending(true); setCommentError('')
+    try {
+      const posted = await window.gitGraph.forgeComment(root, section, item.number, comment)
+      setDetail(old => ({ ...old, comments: [...old.comments, posted] }))
+      setComment('')
+      clearForgeCache(root)
+    } catch (failure) { setCommentError(failure.message || String(failure)) } finally { setSending(false) }
+  }
+  useEffect(() => {
+    let active = true
+    setDetail(null); setError('')
+    window.gitGraph.forgeDetail(root, section, section === 'runs' ? item.id : item.number).then(value => { if (active) setDetail(value) }, failure => { if (active) setError(failure.message || String(failure)) })
+    return () => { active = false }
+  }, [root, section, item, attempt])
+  return <div className="forge-detail">
+    <div className="forge-detail-topline"><button className="tool-button" title="Volver a la lista" aria-label="Volver a la lista" onClick={onBack}><ArrowLeft size={17}/></button><h2>{detail?.title || item.title} {section !== 'runs' && <small>#{item.number}</small>}</h2><button className="tool-button" title="Abrir en el navegador" aria-label="Abrir en el navegador" onClick={() => window.gitGraph.openIssue(detail?.url || item.url).catch(failure => setError(failure.message || String(failure)))}><ExternalLink size={16}/></button></div>
+    {error && <div className="action-error" role="alert">{error} <button onClick={() => setAttempt(value => value + 1)}>Reintentar</button></div>}
+    {!detail && !error && <p className="panel-empty">Cargando detalles…</p>}
+    {detail && <article>
+      <header className="forge-detail-heading">
+        <div className="forge-detail-meta"><span className={'forge-state ' + (detail.state === 'open' || detail.state === 'opened' ? 'is-open' : '')}>{({ open: 'Abierto', opened: 'Abierto', closed: 'Cerrado', merged: 'Fusionado' })[detail.state] || detail.state}</span>{detail.draft && <span>Borrador</span>}{detail.author && <span>{detail.author}</span>}{detail.createdAt && <span>Creado el {date(detail.createdAt)}</span>}{detail.updatedAt && <span>Actualizado el {date(detail.updatedAt)}</span>}</div>
+      </header>
+      <div className="forge-detail-layout"><div className="forge-detail-content">
+        {section !== 'runs' && <section className="forge-card"><div className="forge-card-header">Descripción</div><div className="forge-card-body">{detail.body ? <ForgeMarkdown text={detail.body}/> : <span className="forge-muted">Sin descripción.</span>}</div></section>}
+        {(section === 'issues' || section === 'pulls') && <section className="forge-conversation"><h3>Comentarios <span>{detail.comments.length}</span></h3>{detail.commentsError && <p className="action-error" role="alert">No se pudieron cargar los comentarios anteriores: {detail.commentsError}</p>}{detail.comments.length ? <>{detail.comments.map((comment, index) => <div className="forge-card forge-comment" key={index}><div className="forge-card-header"><strong>{comment.author || 'Usuario'}</strong><span>{date(comment.createdAt)}</span></div><div className="forge-card-body"><ForgeMarkdown text={comment.body}/></div></div>)}{detail.comments.length >= 100 && <p className="forge-muted">Se muestran los primeros 100 comentarios.</p>}</> : <p className="forge-muted">No hay comentarios.</p>}<form className="forge-comment-form forge-card" onSubmit={sendComment}><label className="forge-card-header" htmlFor="forge-comment-input">Añadir comentario</label><div className="forge-card-body"><textarea id="forge-comment-input" value={comment} maxLength={65536} disabled={sending} onChange={event => setComment(event.target.value)} placeholder="Escribe un comentario…" rows={4}/><div className="forge-comment-actions"><span>Admite Markdown</span><button type="submit" disabled={sending || !comment.trim()}>{sending ? 'Publicando…' : 'Publicar comentario'}</button></div>{commentError && <p className="action-error" role="alert">{commentError}</p>}</div></form></section>}
+        {section === 'runs' && <section className="forge-card"><div className="forge-card-header">Ejecución</div><div className="forge-card-body">{detail.event} · {detail.status}{detail.conclusion && ` · ${detail.conclusion}`}</div></section>}
+      </div><aside className="forge-detail-sidebar">
+        {detail.labels.length > 0 && <div><h3>Etiquetas</h3><Labels labels={detail.labels}/></div>}
+        {detail.assignees.length > 0 && <div><h3>Asignados</h3><p>{detail.assignees.join(', ')}</p></div>}
+        {detail.milestone && <div><h3>Milestone</h3><p>{detail.milestone}</p></div>}
+        {(detail.head || detail.base) && <div><h3>Ramas</h3><p className="forge-branches">{detail.head}{detail.base && ` → ${detail.base}`}</p></div>}
+        {detail.changedFiles != null && <div><h3>Cambios</h3><p>{detail.changedFiles} archivos · <span className="forge-additions">+{detail.additions}</span> <span className="forge-deletions">−{detail.deletions}</span></p></div>}
+        {section === 'milestones' && (detail.open != null || detail.dueOn) && <div><h3>Milestone</h3>{detail.open != null && <p>{detail.open} abiertos · {detail.closed} cerrados</p>}{detail.dueOn && <p>Vence el {date(detail.dueOn)}</p>}</div>}
+      </aside></div>
+    </article>}
+  </div>
+}
+
+// Repository issues, change requests, milestones and CI runs.
 export function ForgeDialog({ root, onClose }) {
   const [info, setInfo] = useState(() => peek(cacheKey(root, 'info')) ?? null), [section, setSection] = useState('issues'), [state, setState] = useState('open')
   const [data, setData] = useState<any>(null), [query, setQuery] = useState(''), [tokenOpen, setTokenOpen] = useState(false)
   const [filters, setFilters] = useState<Record<string, any>>({}), [facets, setFacets] = useState({})
-  const [refreshing, setRefreshing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false), [selected, setSelected] = useState<any>(null)
   const github = info?.provider === 'github'
   const serverFilters = JSON.stringify(section === 'milestones' ? {} : filters)
-  const current = SECTIONS.find(item => item.id === section)!
+  const current = (info?.provider === 'gitlab' && section === 'pulls' ? { ...SECTIONS[1], label: 'Merge requests', empty: 'No hay merge requests.' } : info?.provider === 'gitlab' && section === 'runs' ? { ...SECTIONS[3], label: 'Pipelines', empty: 'No hay pipelines.' } : SECTIONS.find(item => item.id === section))!
   useEffect(() => { let active = true; fetchInfo(root).then(result => { if (active) setInfo(result) }, () => {}); return () => { active = false } }, [root])
   const listState = current.states ? state : 'all'
   // Shows cached data immediately (if any) and revalidates in the background; `force` bypasses the freshness window.
@@ -152,9 +205,9 @@ export function ForgeDialog({ root, onClose }) {
     return () => { active = false }
   }, [root, section, github])
   useEffect(() => {
-    const key = event => { if (event.key === 'Escape' && !isFilterMenuOpen()) { event.stopPropagation(); onClose() } }
+    const key = event => { if (event.key === 'Escape' && !isFilterMenuOpen()) { event.stopPropagation(); if (selected) setSelected(null); else onClose() } }
     window.addEventListener('keydown', key, true); return () => window.removeEventListener('keydown', key, true)
-  }, [onClose])
+  }, [onClose, selected])
   const rows = useMemo(() => {
     if (!data?.items || data.section !== section) return []
     const needle = query.trim().toLowerCase()
@@ -163,8 +216,8 @@ export function ForgeDialog({ root, onClose }) {
   }, [data, query, section, filters.sort])
   const defs = github ? FILTERS[section] : []
   const dirty = defs.some(def => filters[def.key] && filters[def.key] !== def.defaultValue)
-  const open = item => window.gitGraph.openIssue(item.url).catch(() => {})
-  const sections = SECTIONS.filter(item => !item.github || info?.provider !== 'gitlab')
+  const open = item => setSelected(item)
+  const sections = SECTIONS.map(item => info?.provider === 'gitlab' && item.id === 'pulls' ? { ...item, label: 'Merge requests', empty: 'No hay merge requests.' } : info?.provider === 'gitlab' && item.id === 'runs' ? { ...item, label: 'Pipelines', empty: 'No hay pipelines.' } : item)
   return <div className="issues-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}><div className="issues-page" role="dialog" aria-modal="true" aria-label={current.label}>
     <header className="issues-head">
       <h2><current.icon size={18}/> {current.label}{info && <small>{info.owner}/{info.repo}</small>}</h2>
@@ -175,13 +228,13 @@ export function ForgeDialog({ root, onClose }) {
         <button className="tool-button" title="Cerrar (Esc)" aria-label="Cerrar" onClick={onClose}><X size={18}/></button>
       </div>
     </header>
-    <nav className="forge-sections" aria-label="Secciones">{sections.map(item => <button key={item.id} className={section === item.id ? 'active' : ''} aria-current={section === item.id ? 'page' : undefined} onClick={() => { setSection(item.id); setQuery(''); setFilters({}) }}><item.icon size={15}/>{item.label}</button>)}</nav>
+    <nav className="forge-sections" aria-label="Secciones">{sections.map(item => <button key={item.id} className={section === item.id ? 'active' : ''} aria-current={section === item.id ? 'page' : undefined} onClick={() => { setSection(item.id); setSelected(null); setQuery(''); setFilters({}) }}><item.icon size={15}/>{item.label}</button>)}</nav>
     {(tokenOpen || data?.error) && <IssueTokenForm root={root} onChanged={() => { clearForgeCache(root); load(true) }}/>}
-    <div className="issues-searchbar"><label className="issues-search"><Search size={15}/><input value={query} placeholder="Buscar…" onChange={event => setQuery(event.target.value)} autoFocus/>{query && <button type="button" aria-label="Borrar búsqueda" onClick={() => setQuery('')}><X size={14}/></button>}</label>
+    {!selected && <div className="issues-searchbar"><label className="issues-search"><Search size={15}/><input value={query} placeholder="Buscar…" onChange={event => setQuery(event.target.value)} autoFocus/>{query && <button type="button" aria-label="Borrar búsqueda" onClick={() => setQuery('')}><X size={14}/></button>}</label>
       {defs.length > 0 && <div className="issues-filters">{defs.map(def => <FilterMenu key={def.key} label={def.label} value={filters[def.key] || def.defaultValue || ''} defaultValue={def.defaultValue} options={def.items || facets[def.facet] || []} searchable={def.searchable} free={def.free} onChange={value => setFilters(old => ({ ...old, [def.key]: value }))}/>)}{dirty && <button type="button" className="filter-reset" onClick={() => setFilters({})}><X size={13}/> Limpiar filtros</button>}</div>}
-    </div>
+    </div>}
     <div className="issues-body">
-      {!data || (data.items && data.section !== section) ? <p className="panel-empty">Cargando…</p>
+      {selected ? <ForgeDetail root={root} section={section} item={selected} onBack={() => setSelected(null)}/> : !data || (data.items && data.section !== section) ? <p className="panel-empty">Cargando…</p>
         : data.error ? <p className="action-error" role="alert">{data.error}</p>
         : rows.length ? <ul className="issues-items">{rows.map(row => <li key={row.key}><button onClick={() => open(row.item)}>{row.body}</button></li>)}</ul>
         : <p className="panel-empty">{current.empty}</p>}

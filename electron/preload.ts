@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('gitGraph', {
   open: () => ipcRenderer.invoke('repo:open'),
+  openFolder: path => ipcRenderer.invoke('repo:open-folder', path),
   load: (path, showRemote, limit) => ipcRenderer.invoke('repo:load', path, showRemote, limit),
   history: (path, showRemote, limit) => ipcRenderer.invoke('repo:history', path, showRemote, limit),
   diff: (path, hash) => ipcRenderer.invoke('repo:diff', path, hash),
@@ -37,13 +38,16 @@ contextBridge.exposeInMainWorld('gitGraph', {
   createTag: (path, request) => ipcRenderer.invoke('repo:create-tag', path, request),
   deleteTag: (path, name, options) => ipcRenderer.invoke('repo:delete-tag', path, name, options),
   pushTag: (path, name, remote) => ipcRenderer.invoke('repo:push-tag', path, name, remote),
+  forgeComment: (path, kind, id, body) => ipcRenderer.invoke('repo:forge-comment', path, kind, id, body),
+  forgeDetail: (path, kind, id) => ipcRenderer.invoke('repo:forge-detail', path, kind, id),
   forgeInfo: path => ipcRenderer.invoke('repo:forge-info', path),
   forgeFacets: (path, kind) => ipcRenderer.invoke('repo:forge-facets', path, kind),
   forgeList: (path, kind, options) => ipcRenderer.invoke('repo:forge-list', path, kind, options),
   hasIssueToken: path => ipcRenderer.invoke('tokens:has', path),
   setIssueToken: (path, token) => ipcRenderer.invoke('tokens:set', path, token),
   openIssue: url => ipcRenderer.invoke('app:open-issue', url),
-  generateCommitMessage: path => ipcRenderer.invoke('repo:generate-message', path),
+  generateCommitMessage: (path, id) => ipcRenderer.invoke('repo:generate-message', path, id),
+  cancelCommitMessage: id => ipcRenderer.invoke('repo:cancel-message', id),
   agent: {
     send: (path, request) => ipcRenderer.invoke('agent:send', path, request),
     cancel: id => ipcRenderer.invoke('agent:cancel', id),

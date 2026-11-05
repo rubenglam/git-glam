@@ -10,7 +10,7 @@ export function IssueTokenForm({ root, onChanged }: { root: string; onChanged?: 
   }
   return <form className="issue-token" onSubmit={event => { event.preventDefault(); if (value.trim()) save(value) }}>
     <label htmlFor="issue-token-input">Token de acceso de este repositorio {configured && <em className="token-ok">configurado</em>}</label>
-    <p>GitHub: token con acceso de lectura a los issues. GitLab: token con permiso <code>read_api</code>. Se guarda cifrado en este equipo y no se vuelve a mostrar.</p>
+    <p>GitHub: token con acceso a issues o pull requests (escritura para comentar). GitLab: permiso <code>api</code> para comentar o <code>read_api</code> solo para consultar. Se guarda cifrado en este equipo y no se vuelve a mostrar.</p>
     <div className="issue-token-controls">
       <input id="issue-token-input" type="password" autoComplete="off" spellCheck="false" value={value} disabled={saving || configured === null} placeholder={configured ? '••••••••••••  (escribe para reemplazarlo)' : 'Pega aquí el token'} onChange={event => { setValue(event.target.value); setError('') }}/>
       <button className="settings-save" type="submit" disabled={saving || !value.trim()}>Guardar</button>

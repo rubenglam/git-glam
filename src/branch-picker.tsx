@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUp, Check, GitBranch, LoaderCircle, Plus, RefreshCw, Sparkles } from 'lucide-react'
+import { ArrowUp, Check, GitBranch, LoaderCircle, Plus, RefreshCw, Sparkles, Square } from 'lucide-react'
 
 export function BranchPicker({ dir, onClose, onDone, onManage }) {
   const [data, setData] = useState<any>(null), [query, setQuery] = useState(''), [index, setIndex] = useState(0), [creating, setCreating] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('')
@@ -49,12 +49,18 @@ export function BranchPicker({ dir, onClose, onDone, onManage }) {
 
 export function CommitBox({ dir, changes, publishedTo, disabled, sync, syncing, onSync, onCommitted, onError }) {
   const [message, setMessage] = useState(''), [generating, setGenerating] = useState(false), [committing, setCommitting] = useState(false), [amend, setAmend] = useState(false)
-  const loaded = useRef('')
+  const loaded = useRef(''), run = useRef<string | null>(null), textarea = useRef<HTMLTextAreaElement>(null), drag = useRef<{ y: number; height: number } | null>(null)
+  useEffect(() => () => { if (run.current) { window.gitGraph.cancelCommitMessage(run.current).catch(() => {}); run.current = null } }, [dir])
   const staged = changes.some(change => change.status[0] !== ' ' && change.status[0] !== '?')
   const working = generating || committing
   async function generate() {
-    setGenerating(true)
-    try { setMessage(await window.gitGraph.generateCommitMessage(dir)) } catch (e) { onError(e.message || String(e)) } finally { setGenerating(false) }
+    const id = crypto.randomUUID()
+    run.current = id; setGenerating(true)
+    try { const result = await window.gitGraph.generateCommitMessage(dir, id); if (run.current === id) setMessage(result) } catch (e) { if (run.current === id) onError(e.message || String(e)) } finally { if (run.current === id) { run.current = null; setGenerating(false) } }
+  }
+  function stopGeneration() {
+    const id = run.current
+    if (id) { run.current = null; setGenerating(false); window.gitGraph.cancelCommitMessage(id).catch(e => onError(e.message || String(e))) }
   }
   async function toggleAmend(on) {
     setAmend(on)
@@ -75,8 +81,9 @@ export function CommitBox({ dir, changes, publishedTo, disabled, sync, syncing, 
   const blocked = unavailable || (!amend && !message.trim())
   return <div className="commit-box">
     <div className="commit-input-wrap">
-      <textarea rows={2} value={message} disabled={disabled || committing} aria-label="Mensaje de commit" placeholder={amend ? 'Mensaje del commit enmendado (vacío = conservar el actual)' : 'Mensaje (Ctrl+Enter para confirmar)'} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !blocked) { event.preventDefault(); commit() } }}/>
-      <button className="commit-ai" title="Generar mensaje con IA (Claude Haiku)" aria-label="Generar mensaje de commit con IA" disabled={disabled || working || changes.length === 0} onClick={generate}>{generating ? <LoaderCircle className="spin" size={15}/> : <Sparkles size={15}/>}</button>
+      <textarea ref={textarea} rows={2} value={message} disabled={disabled || committing} aria-label="Mensaje de commit" placeholder={amend ? 'Mensaje del commit enmendado (vacío = conservar el actual)' : 'Mensaje (Ctrl+Enter para confirmar)'} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !blocked) { event.preventDefault(); commit() } }}/>
+      <button className="commit-ai" title={generating ? "Detener generaci�n" : "Generar mensaje con IA (Claude Haiku)"} aria-label={generating ? "Detener generaci�n" : "Generar mensaje de commit con IA"} disabled={!generating && (disabled || committing || changes.length === 0)} onClick={generating ? stopGeneration : generate}>{generating ? <Square size={14} fill="currentColor"/> : <Sparkles size={15}/>}</button>
+      <div className="commit-resize" aria-hidden="true" onPointerDown={event => { if (!textarea.current) return; drag.current = { y: event.clientY, height: textarea.current.offsetHeight }; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault() }} onPointerMove={event => { if (drag.current && textarea.current) textarea.current.style.height = `${Math.max(58, drag.current.height + event.clientY - drag.current.y)}px` }} onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }} onLostPointerCapture={() => { drag.current = null }}/>
     </div>
     <label className="commit-amend"><input type="checkbox" checked={amend} disabled={disabled || working} onChange={event => toggleAmend(event.target.checked)}/> Enmendar el último commit</label>
     {amend && publishedTo && <p className="commit-warn" role="note">Este commit ya está en {publishedTo}. Enmendarlo reescribe el historial y requerirá un push forzado.</p>}

@@ -8,7 +8,7 @@ const icon = (Icon, color) => ({ Icon, color })
 const BY_EXT = {
   js: badge('JS', '#e8c547'), cjs: badge('JS', '#e8c547'), mjs: badge('JS', '#e8c547'),
   ts: badge('TS', '#4b9be0'), mts: badge('TS', '#4b9be0'), cts: badge('TS', '#4b9be0'),
-  jsx: icon(Atom, '#5fc8e8'), tsx: icon(Atom, '#5fc8e8'),
+  jsx: icon(Atom, '#5fc8e8'), tsx: icon(Atom, '#4b9be0'),
   css: icon(Braces, '#a98be8'), scss: icon(Braces, '#e079b0'), json: icon(Braces, '#e8c547'),
   html: icon(Code, '#e5753a'), md: icon(FileText, '#6aa6d8'), txt: icon(FileText, '#9aa1a8'),
   yaml: icon(FileCog, '#c9807a'), yml: icon(FileCog, '#c9807a'), toml: icon(FileCog, '#c9807a'), lock: icon(FileCog, '#8d959d'),

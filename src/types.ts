@@ -131,6 +131,7 @@ export interface RenderOptions {
 
 /** Bridge exposed by `electron/preload.ts` through `contextBridge`; IPC results are untyped JSON. */
 export interface GitGraphApi {
+  openFolder(path: string): Promise<void>
   open(): Promise<any>
   load(path: string, showRemote?: boolean, limit?: number): Promise<any>
   history(path: string, showRemote?: boolean, limit?: number): Promise<any>
@@ -171,10 +172,13 @@ export interface GitGraphApi {
   forgeInfo(path: string): Promise<any>
   forgeFacets(path: string, kind: string): Promise<any>
   forgeList(path: string, kind: string, options?: { state?: string; filters?: any }): Promise<any>
+  forgeComment(path: string, kind: string, id: number, body: string): Promise<any>
+  forgeDetail(path: string, kind: string, id: number): Promise<any>
   hasIssueToken(path: string): Promise<boolean>
   setIssueToken(path: string, token: string): Promise<any>
   openIssue(url: string): Promise<any>
-  generateCommitMessage(path: string): Promise<string>
+  generateCommitMessage(path: string, id: string): Promise<string>
+  cancelCommitMessage(id: string): Promise<void>
   agent: {
     send(path: string, request: any): Promise<string>
     cancel(id: string): Promise<void>
