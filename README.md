@@ -9,6 +9,9 @@ Node.js 22.18 o posterior, pnpm, Rust con la cadena MSVC, las herramientas de C+
 ```sh
 pnpm dev              # aplicación de escritorio en desarrollo
 pnpm build            # compilar la interfaz React
+pnpm website:dev      # landing Next.js en http://localhost:3000
+pnpm website:build    # compilar la landing Next.js
+pnpm website:start    # servir la compilación de la landing
 pnpm typecheck        # comprobar los tipos TypeScript
 pnpm test             # ejecutar las pruebas de interfaz y Rust
 pnpm package:win      # crear el instalador NSIS para Windows

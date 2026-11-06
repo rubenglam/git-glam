@@ -6,3 +6,9 @@ release-alternate/
 
 src-tauri/target/
 release-updates/
+
+# Next.js
+.next/
+out/
+.vercel/
+*.tsbuildinfo

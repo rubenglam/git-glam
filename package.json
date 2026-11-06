@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "vite build",
+    "website:dev": "pnpm --dir website dev",
+    "website:build": "pnpm --dir website build",
+    "website:start": "pnpm --dir website start",
     "typecheck": "tsc",
     "test": "pnpm test:ui && pnpm test:rust",
     "test:ui": "node --test test/*.test.ts",
