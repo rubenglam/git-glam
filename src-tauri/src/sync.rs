@@ -15,7 +15,7 @@ fn current_branch(dir: &Path) -> Result<String, String> {
 pub(crate) fn sync_inner(dir: &Path, action: &str) -> Result<(), String> {
     match action {
         "fetch" => {
-            run(dir, &["fetch", "--all", "--prune", "--quiet"])?;
+            run(dir, &["fetch", "--all", "--tags", "--prune", "--quiet"])?;
         }
         "pull" => {
             current_branch(dir)?;

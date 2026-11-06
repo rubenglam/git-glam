@@ -513,7 +513,9 @@ function App() {
     let failure: string | null = null
     try {
       if (kind === 'sync') {
-        const info = repo.sync?.[repo.branch]
+        await window.gitGraph.fetch(root)
+        const refreshed = await window.gitGraph.load(root, showRemote, repo.commits.length)
+        const info = refreshed.sync?.[refreshed.branch]
         if (info?.behind) await window.gitGraph.pull(root)
         if (info?.ahead) await window.gitGraph.push(root)
         setNotice('Sincronización completada')
