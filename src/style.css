@@ -781,3 +781,17 @@ button.tab-group-label em{flex:none;min-width:16px;padding:0 4px;border-radius:8
 .palette-editor-head select{background:#fff;color-scheme:light}.palette-editor-head select option{background:#fff;color:#2b2b2b}
 .update-badge{margin-left:8px;padding:2px 8px;border:1px solid #3d8f5f;border-radius:10px;background:#3d8f5f22;color:#3d8f5f;font-size:11px;font-weight:650;cursor:pointer;-webkit-app-region:no-drag}.update-badge:hover{background:#3d8f5f40}
 .update-toast{position:fixed;right:16px;bottom:16px;z-index:1000;width:280px;padding:12px 14px;border:1px solid #cfcfcf;border-left:3px solid #3d8f5f;border-radius:8px;background:#fff;color:#353535;box-shadow:0 6px 24px #0003;font-size:12px;-webkit-app-region:no-drag}.update-toast p{margin:4px 0 0;opacity:.8}.update-toast-actions{display:flex;gap:8px;margin-top:10px}.update-toast-actions button:not(.settings-save){background:none;border:0;color:inherit;opacity:.7;cursor:pointer}.update-toast-actions button:not(.settings-save):hover{opacity:1}
+
+/* History column widths are shared by the header and virtualized rows. */
+.graph-area .table-head,.graph-area .commit-row{grid-template-columns:var(--graph-width) minmax(100px,1fr) var(--date-width) var(--author-width) var(--hash-width)}
+.graph-area .table-head>span{position:relative;min-width:0}
+.column-resize{position:absolute;z-index:1;right:-4px;top:0;width:9px;height:100%;cursor:col-resize;touch-action:none}
+.column-resize:hover,.column-resize:focus-visible{background:#3794ff80;outline:none}
+@media(max-width:1000px){.graph-area .table-head,.graph-area .commit-row{grid-template-columns:var(--graph-width) minmax(100px,1fr) var(--date-width) var(--author-width)}}
+@container (max-width:620px){.graph-area .table-head,.graph-area .commit-row{grid-template-columns:var(--graph-width) minmax(100px,1fr) var(--date-width) var(--author-width)}}
+@container (max-width:430px){.graph-area .table-head,.graph-area .commit-row{grid-template-columns:var(--graph-width) minmax(100px,1fr) var(--date-width)}}
+
+/* Keep badges and commit text inside the description column. */
+.commit-message{overflow:hidden}
+.commit-message .ref{flex-shrink:1;min-width:0}
+.commit-message .head-badge{flex:none}

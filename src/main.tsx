@@ -45,7 +45,6 @@ const color = (i, colors = GRAPH_PALETTES.classic) => colors[i % colors.length]
 const date = value => value ? new Date(value).toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '') : ''
 const HISTORY_PAGE = 500
 const PANEL_MIN = 160
-const PANEL_MAX = 480
 const GRAPH_MIN = 360
 const HANDLE_SIZE = 6
 const clamp = (value, min, max) => Math.max(min, Math.min(value, max))
@@ -76,6 +75,11 @@ function PanelSeparator({ side, panel, order, width, maxWidth, onResize }) {
     event.preventDefault()
     onResize(value)
   }}/>
+}
+
+function ColumnResize({ label, width, direction, onResize, onReset }) {
+  const drag = useRef<{ x: number, width: number, pointerId: number } | null>(null)
+  return <div className="column-resize" role="separator" tabIndex={0} aria-label={`Redimensionar ${label}`} aria-orientation="vertical" aria-valuemin={50} aria-valuemax={600} aria-valuenow={Math.round(width)} title="Arrastra para redimensionar" onDoubleClick={onReset} onPointerDown={event => { event.preventDefault(); drag.current = { x: event.clientX, width, pointerId: event.pointerId }; event.currentTarget.setPointerCapture(event.pointerId) }} onPointerMove={event => { if (drag.current?.pointerId === event.pointerId) onResize(drag.current.width + direction * (event.clientX - drag.current.x)) }} onPointerUp={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); drag.current = null }} onPointerCancel={() => { drag.current = null }} onLostPointerCapture={() => { drag.current = null }} onKeyDown={event => { if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return; event.preventDefault(); onResize(width + (event.key === 'ArrowRight' ? 10 : -10) * direction) }}/>
 }
 
 function Graph({ row, head, rowHeight, palette }) {
@@ -391,6 +395,7 @@ function App() {
   const workspaceRef = useRef<any>(null)
   const [workspaceWidth, setWorkspaceWidth] = useState(window.innerWidth)
   const [leftWidth, setLeftWidth] = useStoredState('gitgraph.leftWidth', 235), [rightWidth, setRightWidth] = useStoredState('gitgraph.rightWidth', 260)
+  const [columnWidths, setColumnWidths] = useStoredState('gitgraph.columnWidths', {})
   const [storedPanelOrder, setPanelOrder] = useStoredState('gitgraph.panelOrder', (() => { try { return JSON.parse(localStorage.getItem('gitgraph.panelsSwapped') || 'false') === true ? ['changes', 'graph', 'branches'] : ['branches', 'graph', 'changes'] } catch { return ['branches', 'graph', 'changes'] } })())
   const panelOrder = Array.isArray(storedPanelOrder) && storedPanelOrder.length === 3 && ['branches', 'graph', 'changes'].every(item => storedPanelOrder.includes(item)) ? storedPanelOrder : ['branches', 'graph', 'changes']
   const panelPosition = name => panelOrder.indexOf(name) * 3
@@ -403,8 +408,8 @@ function App() {
   const available = Math.max(0, workspaceWidth - GRAPH_MIN - (Number(leftOpen) + Number(rightOpen)) * HANDLE_SIZE)
   const displayedLeft = leftOpen ? Math.min(leftWidth, Math.max(PANEL_MIN, available - (rightOpen ? PANEL_MIN : 0))) : 0
   const displayedRight = rightOpen ? Math.min(rightWidth, Math.max(PANEL_MIN, available - displayedLeft)) : 0
-  const maxLeft = Math.max(PANEL_MIN, Math.min(PANEL_MAX, available - displayedRight))
-  const maxRight = Math.max(PANEL_MIN, Math.min(PANEL_MAX, available - displayedLeft))
+  const maxLeft = Math.max(PANEL_MIN, available - displayedRight)
+  const maxRight = Math.max(PANEL_MIN, available - displayedLeft)
   // Warm the issues/PRs/milestones cache for the open project and keep it fresh in the background.
   const repoRoot = repo?.root
   useEffect(() => {
@@ -415,6 +420,10 @@ function App() {
   }, [repoRoot])
   const isRemote = name => (repo?.remotes || []).some(remote => name.replace(/^HEAD -> /, '').startsWith(remote + '/'))
   const rows = useMemo(() => repo ? layout(orderHistory(repo.commits)) : [], [repo])
+  const graphAutoWidth = useMemo(() => rows.reduce((width, row) => Math.max(width, 35 + 18 * Math.max(row.col, row.before.length - 1, row.after.length - 1)), 55), [rows])
+  const widths = { graph: 0, date: 125, author: 100, hash: 75, ...columnWidths }
+  const graphWidth = Number.isFinite(widths.graph) && widths.graph >= 40 ? widths.graph : graphAutoWidth
+  const columnStyle = { '--graph-width': `${graphWidth}px`, '--date-width': `${clamp(Number(widths.date) || 125, 50, 600)}px`, '--author-width': `${clamp(Number(widths.author) || 100, 50, 600)}px`, '--hash-width': `${clamp(Number(widths.hash) || 75, 50, 600)}px` } as React.CSSProperties
   const refs = useMemo<string[]>(() => [...new Set<string>((repo?.commits || []).flatMap(c => c.refs).filter(r => !r.startsWith('tag: ') && (showRemote || !isRemote(r))).map(r => r.replace(/^HEAD -> /, '')))], [repo, showRemote])
   const visibleHashes = useMemo(() => {
     if (filter === 'all') return null
@@ -823,7 +832,7 @@ function App() {
     <div className="workspace" ref={workspaceRef} style={{ display: showProjects || showSettings ? 'none' : undefined }}>
     {leftOpen && <aside id="branches-panel" className="left-panel" style={{ width: displayedLeft, order: panelPosition('branches') }}><div className="panel-header">EXPLORADOR<span className="panel-header-actions"><button className="tool-button" title="Actualizar" aria-label="Actualizar el explorador" disabled={!repo || busy} onClick={() => load()}><RefreshCw size={15}/></button><button className="tool-button" title="Contraer todas las secciones" aria-label="Contraer todas las secciones" disabled={!repo} onClick={() => setAllSections(false)}><ChevronsDownUp size={15}/></button><button className="tool-button" title="Expandir todas las secciones" aria-label="Expandir todas las secciones" disabled={!repo} onClick={() => setAllSections(true)}><ChevronsUpDown size={15}/></button><button className="tool-button" title="Abrir repositorio en el explorador de archivos" aria-label="Abrir repositorio en el explorador de archivos" disabled={!repo} onClick={() => { if (repo) window.gitGraph.openFolder(repo.root).catch(e => setError(e.message || String(e))) }}><FolderOpen size={16}/></button></span></div>{repo ? <Explorer repo={repo} filter={filter} selected={selected} busy={busy} tags={tags} remoteBranches={remoteBranches} branchDates={branchDates} open={{ branches: branchesOpen, remotes: remotesOpen, worktrees: worktreesOpen, stashes: stashesOpen, tags: tagsOpen }} onToggle={toggleSection} onFilter={setFilter} onCheckout={openRef} onSelectCommit={setSelected} onSelectWorktree={selectWorktree} onManage={setManage} onCopyTag={copyTag} onMenu={openManageMenu}/> : <p className="panel-empty">{loadingProject ? 'Cargando ramas y worktrees…' : 'Abre un repositorio para ver sus ramas y worktrees.'}</p>}</aside>}
     {leftOpen && <PanelSeparator panel="branches" side={panelSide("branches")} order={panelPosition("branches") + (panelSide("branches") === "left" ? 1 : -1)} width={displayedLeft} maxWidth={maxLeft} onResize={value => setLeftWidth(clamp(value, PANEL_MIN, maxLeft))}/>}
-    <section className="graph-area" style={{ order: panelPosition('graph') }} aria-busy={Boolean(loadingProject)}>
+    <section className="graph-area" style={{ order: panelPosition('graph'), ...columnStyle }} aria-busy={Boolean(loadingProject)}>
     <header className="toolbar">
       <span className="repository" title={repo?.root}>{repo ? repo.root.split(/[\\/]/).pop() : 'Git Glam'}</span>
       <div className="branch-picker"><label htmlFor="branches">Ramas:</label><select id="branches" value={filter} disabled={!repo} onChange={e => setFilter(e.target.value)}><option value="all">Todas las ramas</option>{refs.map(ref => <option key={ref} value={ref}>{ref}</option>)}</select></div>
@@ -831,7 +840,7 @@ function App() {
       <div className="toolbar-actions"><button className="run-project-command" title={projects.find(project => project.path === activeProject)?.command?.trim() ? 'Ejecutar el comando del proyecto' : 'Configurar el comando del proyecto'} aria-label="Ejecutar comando del proyecto" disabled={!repo || busy || launchingCommand} onClick={runProjectCommand}>{launchingCommand ? <LoaderCircle className="spin" size={16}/> : <SquareTerminal size={16}/>}</button>{searchOpen && <input className="search-input" aria-label="Buscar commits" placeholder="Buscar commits..." value={query} onChange={e => setQuery(e.target.value)} autoFocus/>}<button className="tool-button small" title="Buscar (/ )" aria-label="Buscar" onClick={() => { setSearchOpen(!searchOpen); if (searchOpen) setQuery('') }}><Search size={16}/></button><button className={'tool-button small '+(busy?'spin':'')} title="Actualizar (F5)" aria-label="Actualizar" disabled={!repo || busy} onClick={() => load()}><RefreshCw size={16}/></button></div>
     </header>
     {loadingProject ? <div className="project-loading" role="status" aria-live="polite"><span className="project-loading-icon"><LoaderCircle className="spin" size={22}/></span><strong>Cargando proyecto…</strong><span>{loadingProject}</span></div> : !repo ? <div className="empty"><GitMerge size={38}/><h1>{activeProject ? 'No se pudo abrir el proyecto' : 'Git Glam'}</h1><p>{activeProject ? 'Comprueba que el repositorio esté disponible.' : 'Abre un repositorio para explorar su historial.'}</p>{activeProject ? <button className="open-cta" onClick={() => openProject(activeProject)}>Reintentar</button> : <button className="open-cta" onClick={() => load(true)}><FolderOpen size={16}/> Abrir repositorio</button>}</div> : <>
-      <div className="table-head"><span>Grafo</span><span>Descripción</span><span>Fecha</span><span>Autor</span><span>Commit</span></div>
+      <div className="table-head">{[['Grafo', 'graph'], ['Descripción', 'date'], ['Fecha', 'date'], ['Autor', 'author'], ['Commit', 'hash']].map(([label, key], index) => <span key={label}>{label}<ColumnResize label={label} width={key === 'graph' ? graphWidth : Number(widths[key]) || ({ date: 125, author: 100, hash: 75 }[key])} direction={index === 1 ? -1 : 1} onResize={value => setColumnWidths(old => ({ ...old, [key]: clamp(value, 50, 600) }))} onReset={key === 'graph' ? () => setColumnWidths(old => ({ ...old, graph: 0 })) : undefined}/></span>)}</div>
       <CommitList rowHeight={layoutDensity === 'compact' ? 22 : 28} rows={rows} hasMore={repo.hasMore} loadingMore={loadingMore} onLoadMore={loadMore} selectedHash={selected?.hash} contextHash={commitMenu?.commit.hash} visibleHashes={visibleHashes} query={query} showRemote={showRemote} palette={branchPalette.preset === 'custom' ? branchPalette.custom : GRAPH_PALETTES[branchPalette.preset] || GRAPH_PALETTES.classic} remotes={repo.remotes} onSelect={setSelected} onContext={openCommitMenu} onRefContext={openRefMenu} onRefOpen={openRef}/>
       {selectedChange && <WorkingDiff root={repo.root} change={selectedChange} version={repo} busy={busy} onHunk={request => changeAction(root => window.gitGraph.applyHunk(root, request))} onDiscardHunk={hunk => setManage({ kind: 'discard-hunk', hunk })} onClose={() => setSelectedChange(null)}/>}
       {selected && !selectedChange && <CommitDetails commit={selected} root={repo.root} diff={diff} formatDate={date} onFileContext={(path, rev, x, y) => setFileMenu({ path, rev, x, y })} onSelectHash={hash => { const target = repo.commits.find(commit => commit.hash === hash); if (target) setSelected(target) }} onClose={() => setSelected(null)}/>}
