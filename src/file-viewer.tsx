@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Code2, ExternalLink, X } from 'lucide-react'
+import { Bot, Code2, ExternalLink, X } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import hljs from 'highlight.js/lib/common'
 import { FileIcon } from './file-icon.tsx'
 
@@ -18,7 +20,7 @@ function languageFor(path: string) {
   return languages[name.split('.').pop() || ''] || ''
 }
 
-export function FileViewer({ root, path, onClose }: { root: string, path: string, onClose: () => void }) {
+export function FileViewer({ root, path, onClose, documentation = false, onAsk }: { root: string, path: string, onClose: () => void, documentation?: boolean, onAsk?: () => void }) {
   const [openError, setOpenError] = useState('')
   const [result, setResult] = useState<{ content?: string, error?: string }>({})
   useEffect(() => {
@@ -43,9 +45,9 @@ export function FileViewer({ root, path, onClose }: { root: string, path: string
     window.gitGraph.fileAction(root, path, action).catch(error => setOpenError(error.message || String(error)))
   }
   return <div className="file-viewer">
-    <div className="file-viewer-header"><FileIcon path={path}/><strong title={path}>{path}</strong>{language && <span className="file-viewer-language">{language}</span>}<button className="tool-button" title="Abrir en Visual Studio Code" aria-label="Abrir en Visual Studio Code" onClick={() => openExternal('vscode')}><Code2 size={17}/></button><button className="tool-button" title="Abrir con la aplicación predeterminada" aria-label="Abrir con la aplicación predeterminada" onClick={() => openExternal('open')}><ExternalLink size={16}/></button><button className="tool-button" title="Volver al gráfico" aria-label="Cerrar archivo y volver al gráfico" onClick={onClose}><X size={18}/></button></div>
+    <div className="file-viewer-header"><FileIcon path={path}/><strong title={path}>{path}</strong>{documentation && onAsk && <button className="documentation-ask" onClick={onAsk}><Bot size={15}/> Preguntar a la IA</button>}{language && !documentation && <span className="file-viewer-language">{language}</span>}<button className="tool-button" title="Abrir en Visual Studio Code" aria-label="Abrir en Visual Studio Code" onClick={() => openExternal('vscode')}><Code2 size={17}/></button><button className="tool-button" title="Abrir con la aplicación predeterminada" aria-label="Abrir con la aplicación predeterminada" onClick={() => openExternal('open')}><ExternalLink size={16}/></button><button className="tool-button" title="Volver al gráfico" aria-label="Cerrar archivo y volver al gráfico" onClick={onClose}><X size={18}/></button></div>
     {openError && <div className="file-viewer-error" role="alert">{openError}<button className="tool-button" aria-label="Cerrar error" onClick={() => setOpenError('')}><X size={15}/></button></div>}
-    {result.error ? <p className="file-preview-message">{result.error}</p> : result.content === undefined ? <p className="file-preview-message">Cargando…</p> : <div className="code-viewer" tabIndex={0} aria-label={'Contenido de ' + path}>
+    {result.error ? <p className="file-preview-message">{result.error}</p> : result.content === undefined ? <p className="file-preview-message">Cargando…</p> : documentation ? <div className="documentation-content" tabIndex={0} aria-label={'Contenido de ' + path}>{/\.mdx?$/i.test(path) ? <div className="forge-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ img: () => null }}>{result.content}</ReactMarkdown></div> : <pre>{result.content}</pre>}</div> : <div className="code-viewer" tabIndex={0} aria-label={'Contenido de ' + path}>
       <pre className="code-line-numbers" aria-hidden="true">{lineNumbers}</pre>
       <pre className="code-content"><code>{highlighted === null ? result.content : <span dangerouslySetInnerHTML={{ __html: highlighted }}/>}</code></pre>
     </div>}

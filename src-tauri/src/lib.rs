@@ -73,6 +73,8 @@ pub fn run() {
             file_browser::browse_files,
             file_browser::preview_file,
             file_browser::search_files,
+            file_browser::documentation_files,
+            file_browser::ai_files,
             file_history::file_history,
             file_history::file_blame,
             branches::delete_remote_branch,

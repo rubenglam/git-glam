@@ -78,3 +78,88 @@ pub async fn search_files(dir: String, query: String) -> Result<SearchResults, S
         Ok(SearchResults { files, truncated })
     }).await.map_err(|e| e.to_string())?
 }
+
+#[tauri::command]
+pub async fn documentation_files(dir: String, include_folders: Vec<String>) -> Result<SearchResults, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = resolve(&dir, "")?;
+        let mut pending = vec![(root, String::new())];
+        let mut files = Vec::new();
+        let mut scanned = 0usize;
+        let mut truncated = false;
+        while let Some((folder, relative)) = pending.pop() {
+            let entries = match fs::read_dir(folder) { Ok(entries) => entries, Err(_) => continue };
+            for item in entries.flatten() {
+                scanned += 1;
+                if scanned > 100_000 || files.len() >= 1000 { truncated = true; break; }
+                let kind = match item.file_type() { Ok(kind) => kind, Err(_) => continue };
+                let name = item.file_name().to_string_lossy().into_owned();
+                let lower = name.to_lowercase();
+                if kind.is_symlink() { continue; }
+                let path = if relative.is_empty() { name.clone() } else { format!("{relative}/{name}") };
+                if kind.is_dir() {
+                    if matches!(lower.as_str(), ".git" | "node_modules" | "vendor" | "target" | "dist" | "build" | "bin" | "obj" | ".venv") { continue; }
+                    if matches!(lower.as_str(), ".github" | ".agents" | ".claude" | ".skills") && !include_folders.contains(&lower) { continue; }
+                    pending.push((item.path(), path));
+                } else if kind.is_file() && (lower.ends_with(".md") || lower.ends_with(".mdx") || lower.ends_with(".rst") || lower.ends_with(".adoc") || matches!(lower.as_str(), "readme" | "license" | "licence" | "changelog" | "contributing")) {
+                    files.push(Entry { name, path, directory: false });
+                }
+            }
+            if truncated { break; }
+        }
+        files.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+        Ok(SearchResults { files, truncated })
+    }).await.map_err(|e| e.to_string())?
+}
+
+// Discover project-local assistant instructions and configuration, including untracked files.
+#[tauri::command]
+pub async fn ai_files(dir: String) -> Result<SearchResults, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = resolve(&dir, "")?;
+        let mut pending = vec![(root, String::new())];
+        let mut files = Vec::new();
+        let mut scanned = 0usize;
+        let mut truncated = false;
+        while let Some((folder, relative)) = pending.pop() {
+            let entries = match fs::read_dir(folder) { Ok(entries) => entries, Err(_) => continue };
+            for item in entries.flatten() {
+                scanned += 1;
+                if scanned > 100_000 || files.len() >= 1000 { truncated = true; break; }
+                let kind = match item.file_type() { Ok(kind) => kind, Err(_) => continue };
+                if kind.is_symlink() { continue; }
+                let name = item.file_name().to_string_lossy().into_owned();
+                let lower = name.to_lowercase();
+                let path = if relative.is_empty() { name.clone() } else { format!("{relative}/{name}") };
+                if kind.is_dir() {
+                    if matches!(lower.as_str(), ".git" | "node_modules" | "vendor" | "target" | "dist" | "build" | "bin" | "obj" | ".venv") { continue; }
+                    pending.push((item.path(), path));
+                } else if kind.is_file() && is_ai_file(&path) {
+                    files.push(Entry { name, path, directory: false });
+                }
+            }
+            if truncated { break; }
+        }
+        files.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+        Ok(SearchResults { files, truncated })
+    }).await.map_err(|e| e.to_string())?
+}
+
+fn is_ai_file(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    let parts: Vec<&str> = lower.split('/').collect();
+    let name = parts.last().copied().unwrap_or("");
+    if matches!(name, "agents.md" | "agents.override.md" | "claude.md" | "gemini.md" | "copilot-instructions.md" | ".cursorrules" | ".windsurfrules" | ".aider.conf.yml" | ".aider.conf.yaml" | "skills-lock.json" | ".mcp.json" | "mcp.json" | "marketplace.json") { return true; }
+    if parts.iter().any(|part| matches!(*part, ".claude" | ".codex" | ".agents" | ".cursor" | ".windsurf" | ".gemini" | ".opencode" | ".skills" | ".mcp" | ".claude-plugin")) { return true; }
+    parts.windows(2).any(|p| p[0] == ".github" && matches!(p[1], "agents" | "instructions" | "prompts" | "skills"))
+}
+
+#[cfg(test)]
+mod ai_file_tests {
+    use super::is_ai_file;
+    #[test]
+    fn detects_assistant_files_without_matching_unrelated_files() {
+        for path in ["AGENTS.md", "src/CLAUDE.md", ".codex/config.toml", ".claude/agents/reviewer.md", ".github/agents/test.agent.md", ".cursor/rules/test.mdc", ".mcp.json", ".claude-plugin/marketplace.json"] { assert!(is_ai_file(path), "{path}"); }
+        for path in ["README.md", "src/agents.ts", ".github/workflows/ci.yml", "docs/claude-guide.md"] { assert!(!is_ai_file(path), "{path}"); }
+    }
+}

@@ -116,7 +116,7 @@ function applyEvent(tab, event) {
 }
 
 // Quick-prompt chat with a coding agent (the claude CLI) running inside the repository, one tab per conversation.
-export function AgentDialog({ root, onClose, fileReview = null }: { root: string; onClose: () => void; fileReview?: { path: string; staged: boolean; all?: false } | { all: true } | null }) {
+export function AgentDialog({ root, onClose, fileReview = null, documentationPath }: { root: string; onClose: () => void; documentationPath?: string; fileReview?: { path: string; staged: boolean; all?: false } | { all: true } | null }) {
   const [tabs, setTabs] = useState<any[]>(() => [newTab()]), [activeId, setActiveId] = useState<any>(null), [now, setNow] = useState(Date.now())
   const end = useRef<any>(null), tabsRef = useRef(tabs), activeRef = useRef<any>(null), loaded = useRef(false), saveTimer = useRef<any>(null), [ready, setReady] = useState(false)
   tabsRef.current = tabs
@@ -159,6 +159,17 @@ export function AgentDialog({ root, onClose, fileReview = null }: { root: string
     try { await window.gitGraph.agent.send(root, { id: runId, prompt: text, sessionId: active.session, mode: active.mode, model: active.model, effort: active.effort }) }
     catch (e) { patch(id, tab => ({ messages: reduceEvent(tab.messages, { type: 'done', error: true, text: e.message || String(e) }) })) }
   }
+  const documentationStarted = useRef(false)
+  useEffect(() => {
+    if (!ready || !documentationPath || documentationStarted.current) return
+    documentationStarted.current = true
+    if (tabsRef.current.length >= MAX_TABS) {
+      patch(active.id, { draft: `Sobre la documentación ${JSON.stringify(documentationPath)}: ` })
+      return
+    }
+    const tab = newTab({ title: 'Documentación: ' + documentationPath.split('/').pop(), mode: 'read', model: active.model, effort: active.effort, draft: `Sobre la documentación ${JSON.stringify(documentationPath)}: ` })
+    setTabs(old => [...old, tab]); setActiveId(tab.id)
+  }, [ready, documentationPath])
   const reviewStarted = useRef(false)
   useEffect(() => {
     if (!ready || !fileReview || reviewStarted.current) return

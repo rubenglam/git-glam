@@ -141,6 +141,8 @@ export interface GitGraphApi {
   diff(path: string, hash: string): Promise<string>
   commitFiles(path: string, hash: string): Promise<any>
   browseFiles(path: string, folder: string): Promise<{ name: string, path: string, directory: boolean }[]>
+  aiFiles(path: string): Promise<{ files: { name: string, path: string, directory: boolean }[], truncated: boolean }>
+  documentationFiles(path: string, includeFolders: string[]): Promise<{ files: { name: string, path: string, directory: boolean }[], truncated: boolean }>
   searchFiles(path: string, query: string): Promise<{ files: { name: string, path: string, directory: boolean }[], truncated: boolean }>
   previewFile(path: string, file: string): Promise<string>
   fileHistory(path: string, file: string, rev?: string): Promise<any>

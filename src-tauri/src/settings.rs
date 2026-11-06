@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager, State};
 #[derive(Default)]
 pub struct SettingsLock(Mutex<()>);
 fn defaults() -> Value {
-    json!({"showAI":true,"showAIAgent":true,"showAIReview":true,"showAICommit":true,"showAIImprovements":true,"showRemote":true,"leftOpen":true,"rightOpen":true,"groupTabs":false,"showUngroupedLabel":false,"tabLabelWidth":220,"autoFetchMinutes":0,"layoutDensity":"comfortable","theme":"dark","branchPalette":{"preset":"classic","custom":["#009ce9","#e30094","#00d625","#e69a00","#aa00e8","#ee4c4c","#00cabc"]},"agentModel":"claude-sonnet-5-5","agentEffort":"medium","chatModel":"","summaryModel":"claude-haiku-5-5","reviewModel":"","commitModel":"claude-haiku-5-5","improvementsModel":""})
+    json!({"showAI":true,"showAIAgent":true,"showAIReview":true,"showAICommit":true,"showAIImprovements":true,"showRemote":true,"leftOpen":true,"rightOpen":true,"explorerIconsOnly":false,"groupTabs":false,"showUngroupedLabel":false,"tabLabelWidth":220,"autoFetchMinutes":0,"layoutDensity":"comfortable","theme":"dark","branchPalette":{"preset":"classic","custom":["#009ce9","#e30094","#00d625","#e69a00","#aa00e8","#ee4c4c","#00cabc"]},"agentModel":"claude-sonnet-5-5","agentEffort":"medium","chatModel":"","summaryModel":"claude-haiku-5-5","reviewModel":"","commitModel":"claude-haiku-5-5","improvementsModel":""})
 }
 fn valid(key: &str, value: &Value) -> bool {
     let models = [

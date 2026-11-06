@@ -11,6 +11,8 @@ export function createGitGraphBridge(transport: { invoke: (channel: string, ...a
   diff: (path, hash) => transport.invoke('repo:diff', path, hash),
   commitFiles: (path, hash) => transport.invoke('repo:commit-files', path, hash),
   browseFiles: (path, folder) => transport.invoke('repo:browse-files', path, folder),
+  aiFiles: path => transport.invoke('repo:ai-files', path),
+  documentationFiles: (path, includeFolders) => transport.invoke('repo:documentation-files', path, includeFolders),
   searchFiles: (path, query) => transport.invoke('repo:search-files', path, query),
   previewFile: (path, file) => transport.invoke('repo:preview-file', path, file),
   fileHistory: (path, file, rev) => transport.invoke('repo:file-history', path, file, rev),
