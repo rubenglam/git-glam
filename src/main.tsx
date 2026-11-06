@@ -1,3 +1,6 @@
+import { migrateElectronUi } from './tauri-bridge.ts'
+import { isTauri } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Archive, Bot, Lightbulb, CircleAlert, CircleCheck, CircleDot, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, File, Folder, FolderGit2, FolderOpen, FolderPlus, GitBranch, GitMerge, Cloud, CloudDownload, Ellipsis, LoaderCircle, PanelLeft, PanelRight, Pencil, Plus, RefreshCw, Search, Settings, SquareTerminal, Star, Tag, Trash2, X } from 'lucide-react'
@@ -5,6 +8,10 @@ import { layout, orderHistory } from './graph-layout.ts'
 import type { DiffState, GraphRow } from './types.ts'
 import { graphSegments } from './graph-segments.ts'
 import { moveProjectTab } from './project-order.ts'
+
+const isDevelopmentBuild = import.meta.env.DEV
+const appIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+if (appIcon) appIcon.href = isDevelopmentBuild ? '/logo-dev.svg' : '/logo.svg'
 import { CommitActionDialog, CommitMenu } from './commit-actions.tsx'
 import { CommitDetails } from './commit-details.tsx'
 import { FileHistoryDialog, FileMenu } from './file-history.tsx'
@@ -26,8 +33,14 @@ const themeStyles = document.createElement('style')
 themeStyles.textContent = darkStyles
 document.head.appendChild(themeStyles)
 
-const colors = ['#009ce9', '#e30094', '#00d625', '#e69a00', '#aa00e8', '#ee4c4c', '#00cabc']
-const color = i => colors[i % colors.length]
+const GRAPH_PALETTES = {
+  classic: ['#009ce9', '#e30094', '#00d625', '#e69a00', '#aa00e8', '#ee4c4c', '#00cabc', '#9be000', '#4f5bff', '#b5651d'],
+  ocean: ['#1d6fdc', '#00c2d1', '#7b61ff', '#12a38a', '#ff7f6b', '#f2c14e', '#a3d9ff', '#c04fb5', '#5ee6a8', '#6c7a89'],
+  forest: ['#2e9e4f', '#c5d93a', '#8b5a2b', '#e8a317', '#c8432b', '#2aa6a0', '#8e6bbf', '#e68fac', '#9bd0a0', '#d2b48c'],
+  sunset: ['#ff4d6d', '#ff8a00', '#ffd23f', '#9b5de5', '#f15bb5', '#00bbf9', '#2ec4b6', '#c1121f', '#7c83fd', '#ffa69e'],
+  pastel: ['#7aa2f7', '#f7768e', '#9ece6a', '#e0af68', '#bb9af7', '#73daca', '#ff9e64', '#7dcfff', '#f4b8e4', '#d4a373'],
+}
+const color = (i, colors = GRAPH_PALETTES.classic) => colors[i % colors.length]
 const date = value => value ? new Date(value).toLocaleString('es-ES', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', '') : ''
 const HISTORY_PAGE = 500
 const PANEL_MIN = 160
@@ -64,19 +77,19 @@ function PanelSeparator({ side, panel, order, width, maxWidth, onResize }) {
   }}/>
 }
 
-function Graph({ row, head, rowHeight }) {
+function Graph({ row, head, rowHeight, palette }) {
   const x = i => 17 + i * 18
   return <svg className="graph" width="100%" height={rowHeight} aria-hidden="true">
-    {graphSegments(row, rowHeight).map((segment, index) => <path key={index} d={segment.d} stroke={color(segment.lane)} />)}
-    {head && <circle className="head-halo" cx={x(row.col)} cy={rowHeight / 2} r="9" fill="none" stroke={color(row.col)} strokeWidth="2" />}
-    <circle cx={x(row.col)} cy={rowHeight / 2} r={head ? 5 : 3.5} fill={head ? 'var(--graph-background)' : color(row.col)} stroke={color(row.col)} strokeWidth="2" />
+    {graphSegments(row, rowHeight).map((segment, index) => <path key={index} d={segment.d} stroke={color(segment.lane, palette)} />)}
+    {head && <circle className="head-halo" cx={x(row.col)} cy={rowHeight / 2} r="9" fill="none" stroke={color(row.col, palette)} strokeWidth="2" />}
+    <circle cx={x(row.col)} cy={rowHeight / 2} r={head ? 5 : 3.5} fill={head ? 'var(--graph-background)' : color(row.col, palette)} stroke={color(row.col, palette)} strokeWidth="2" />
   </svg>
 }
 
-function RefLabel({ name, lane, synced, onContext, onOpen }) {
+function RefLabel({ name, lane, synced, onContext, onOpen, palette }) {
   const tag = name.startsWith('tag: ')
   const label = name.replace(/^HEAD -> /, '').replace(/^tag: /, '')
-  return <span className="ref" onClick={tag || !onOpen ? undefined : event => { event.stopPropagation(); if (event.detail >= 2) { event.preventDefault(); onOpen(name.replace(/^HEAD -> /, '')) } }} onContextMenu={!onContext ? undefined : event => { event.preventDefault(); event.stopPropagation(); onContext(name.replace(/^HEAD -> /, ''), event) }}><span className="ref-icon" style={{ background: color(lane) }}>{tag ? <Tag size={11}/> : <GitBranch size={11}/>}</span><span className="ref-name">{label}</span>{synced && <span className="ref-remote" title={`También en ${synced}`}><Cloud size={11}/><span className="ref-remote-name">{synced.split('/')[0]}</span></span>}</span>
+  return <span className="ref" onClick={tag || !onOpen ? undefined : event => { event.stopPropagation(); if (event.detail >= 2) { event.preventDefault(); onOpen(name.replace(/^HEAD -> /, '')) } }} onContextMenu={!onContext ? undefined : event => { event.preventDefault(); event.stopPropagation(); onContext(name.replace(/^HEAD -> /, ''), event) }}><span className="ref-icon" style={{ background: color(lane, palette) }}>{tag ? <Tag size={11}/> : <GitBranch size={11}/>}</span><span className="ref-name">{label}</span>{synced && <span className="ref-remote" title={`También en ${synced}`}><Cloud size={11}/><span className="ref-remote-name">{synced.split('/')[0]}</span></span>}</span>
 }
 
 interface CommitRowProps {
@@ -86,6 +99,7 @@ interface CommitRowProps {
   contextActive: boolean
   matches: boolean
   showRemote: boolean
+  palette: string[]
   remotes: string[]
   onSelect: (commit: any) => void
   onContext: (commit: any, x: number, y: number, origin?: any) => void
@@ -104,20 +118,20 @@ interface CommitListProps extends Omit<CommitRowProps, 'row' | 'selected' | 'con
   onLoadMore: () => void
 }
 
-const CommitRow = React.memo(function CommitRow({ row, rowHeight, selected, contextActive, matches, showRemote, remotes, onSelect, onContext, onRefContext, onRefOpen }: CommitRowProps) {
+const CommitRow = React.memo(function CommitRow({ row, rowHeight, selected, contextActive, matches, showRemote, palette, remotes, onSelect, onContext, onRefContext, onRefOpen }: CommitRowProps) {
   const commit = row.commit, isHead = commit.refs.some(r => r.startsWith('HEAD'))
   const isRemote = name => remotes.some(remote => name.replace(/^HEAD -> /, '').startsWith(remote + '/'))
   const names = new Set(commit.refs.map(r => r.replace(/^HEAD -> /, '')))
   const syncedRemote = ref => { const name = ref.replace(/^HEAD -> /, ''); return isRemote(name) || ref.startsWith('tag: ') ? undefined : remotes.map(remote => remote + '/' + name).find(full => names.has(full)) }
   const merged = new Set(commit.refs.map(syncedRemote).filter(Boolean))
   const visibleRefs = commit.refs.filter(ref => !merged.has(ref) && (showRemote || !isRemote(ref))).map(ref => ({ ref, synced: showRemote ? syncedRemote(ref) : undefined }))
-  return <button className={'commit-row '+(selected?'selected ':'')+(contextActive?'context-active ':'')+(isHead?'head ':'')+(!matches?'dim ':'')+(commit.parents.length > 1 ? 'merge':'')} onClick={() => onSelect(commit)} onContextMenu={event => { event.preventDefault(); onContext(commit, event.clientX, event.clientY, event.currentTarget) }} onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); onContext(commit, rect.left + 20, rect.bottom, event.currentTarget) } }}><Graph row={row} head={isHead} rowHeight={rowHeight}/><span className="commit-message">{isHead && <span className="head-badge" title="Estás aquí: HEAD apunta a este commit">HEAD</span>}{visibleRefs.map(({ ref, synced }) => <RefLabel key={ref} name={ref} lane={row.col} synced={synced} onContext={onRefContext} onOpen={onRefOpen}/>)}<span className="subject">{commit.subject}</span></span><span className="date">{date(commit.date)}</span><span className="author">{commit.author}</span><span className="hash">{commit.hash.slice(0,8)}</span></button>
+  return <button className={'commit-row '+(selected?'selected ':'')+(contextActive?'context-active ':'')+(isHead?'head ':'')+(!matches?'dim ':'')+(commit.parents.length > 1 ? 'merge':'')} onClick={() => onSelect(commit)} onContextMenu={event => { event.preventDefault(); onContext(commit, event.clientX, event.clientY, event.currentTarget) }} onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); onContext(commit, rect.left + 20, rect.bottom, event.currentTarget) } }}><Graph row={row} head={isHead} rowHeight={rowHeight} palette={palette}/><span className="commit-message">{isHead && <span className="head-badge" title="Estás aquí: HEAD apunta a este commit">HEAD</span>}{visibleRefs.map(({ ref, synced }) => <RefLabel key={ref} name={ref} lane={row.col} synced={synced} palette={palette} onContext={onRefContext} onOpen={onRefOpen}/>)}<span className="subject">{commit.subject}</span></span><span className="date">{date(commit.date)}</span><span className="author">{commit.author}</span><span className="hash">{commit.hash.slice(0,8)}</span></button>
 })
 
 const OVERSCAN = 12
 const LOAD_AHEAD = 60
 
-const CommitList = React.memo(function CommitList({ rowHeight, rows, hasMore, loadingMore, selectedHash, contextHash, visibleHashes, query, showRemote, remotes, onSelect, onContext, onRefContext, onRefOpen, onLoadMore }: CommitListProps) {
+const CommitList = React.memo(function CommitList({ rowHeight, rows, hasMore, loadingMore, selectedHash, contextHash, visibleHashes, query, showRemote, palette, remotes, onSelect, onContext, onRefContext, onRefOpen, onLoadMore }: CommitListProps) {
   const needle = query.toLowerCase()
   const scroller = useRef<any>(null)
   const [view, setView] = useState({ top: 0, height: 600 })
@@ -138,7 +152,7 @@ const CommitList = React.memo(function CommitList({ rowHeight, rows, hasMore, lo
     <div style={{ paddingTop: start * rowHeight, paddingBottom: (rows.length - end) * rowHeight }}>{rows.slice(start, end).map(row => {
       const c = row.commit
       const matches = (!visibleHashes || visibleHashes.has(c.hash)) && (!needle || `${c.subject} ${c.message} ${c.author} ${c.email} ${c.hash} ${c.refs.join(' ')}`.toLowerCase().includes(needle))
-      return <CommitRow key={c.hash} row={row} rowHeight={rowHeight} selected={selectedHash === c.hash} contextActive={contextHash === c.hash} matches={matches} showRemote={showRemote} remotes={remotes} onSelect={onSelect} onContext={onContext} onRefContext={onRefContext} onRefOpen={onRefOpen}/>
+      return <CommitRow key={c.hash} row={row} rowHeight={rowHeight} selected={selectedHash === c.hash} contextActive={contextHash === c.hash} matches={matches} showRemote={showRemote} palette={palette} remotes={remotes} onSelect={onSelect} onContext={onContext} onRefContext={onRefContext} onRefOpen={onRefOpen}/>
     })}</div>
     {(hasMore || loadingMore) && <div className="history-more" role="status">{loadingMore ? <><LoaderCircle className="spin" size={14}/> Cargando más historial…</> : 'Desplázate para cargar más'}</div>}
   </>}</div>
@@ -355,7 +369,7 @@ function App() {
   const [leftOpen, setLeftOpen] = useState(true), [rightOpen, setRightOpen] = useState(true), [groupTabs, setGroupTabs] = useState(false), [showUngroupedLabel, setShowUngroupedLabel] = useState(false), [tabLabelWidth, setTabLabelWidth] = useState(220), [autoFetchMinutes, setAutoFetchMinutes] = useState(0), [layoutDensity, setLayoutDensity] = useState('comfortable'), [syncing, setSyncing] = useState<any>(null), [branchesOpen, setBranchesOpen] = useState(true), [worktreesOpen, setWorktreesOpen] = useState(true), [stashesOpen, setStashesOpen] = useState(true), [selectedChange, setSelectedChange] = useState<any>(null), [menu, setMenu] = useState<any>(null)
   const [projects, setProjects] = useState<any[]>([]), [folders, setFolders] = useState<any[]>([]), [activeProject, setActiveProject] = useState<any>(null)
   const [statuses, setStatuses] = useState({}), [defaultProject, setDefaultProject] = useState<any>(null), [showProjects, setShowProjects] = useState(true)
-  const [theme, setTheme] = useState('dark')
+  const [theme, setTheme] = useState('dark'), [branchPalette, setBranchPalette] = useState<any>({ preset: 'classic', custom: ['#009ce9', '#e30094', '#00d625', '#e69a00', '#aa00e8', '#ee4c4c', '#00cabc'] })
   useLayoutEffect(() => { themeStyles.textContent = theme === 'light' ? lightStyles : darkStyles }, [theme])
   const [showSettings, setShowSettings] = useState(false)
   const [settingsSection, setSettingsSection] = useState('general'), [launchingCommand, setLaunchingCommand] = useState(false)
@@ -652,7 +666,7 @@ function App() {
   function toggleDefault(path) { return setDefault(defaultProject === path ? null : path) }
   const [aiSettings, setAISettings] = useState({ showAI: true, showAIAgent: true, showAIReview: true, showAICommit: true, showAIImprovements: true, agentModel: 'claude-sonnet-5-5', chatModel: '', summaryModel: 'claude-haiku-5-5', reviewModel: '', commitModel: 'claude-haiku-5-5', improvementsModel: '' })
   async function changeSetting(key, value) {
-    const previous: any = key in aiSettings ? aiSettings[key] : key === 'leftOpen' ? leftOpen : key === 'rightOpen' ? rightOpen : key === 'groupTabs' ? groupTabs : key === 'showUngroupedLabel' ? showUngroupedLabel : key === 'tabLabelWidth' ? tabLabelWidth : key === 'autoFetchMinutes' ? autoFetchMinutes : key === 'layoutDensity' ? layoutDensity : key === 'theme' ? theme : showRemote
+    const previous: any = key in aiSettings ? aiSettings[key] : key === 'leftOpen' ? leftOpen : key === 'rightOpen' ? rightOpen : key === 'groupTabs' ? groupTabs : key === 'showUngroupedLabel' ? showUngroupedLabel : key === 'tabLabelWidth' ? tabLabelWidth : key === 'autoFetchMinutes' ? autoFetchMinutes : key === 'layoutDensity' ? layoutDensity : key === 'theme' ? theme : key === 'branchPalette' ? branchPalette : showRemote
     const version = (settingVersions.current[key] || 0) + 1
     settingVersions.current[key] = version
     if (key === 'showRemote') { ++projectRequest.current; setRefreshingProject(null); setBusy(true) }
@@ -665,6 +679,7 @@ function App() {
     else if (key === 'autoFetchMinutes') setAutoFetchMinutes(value)
     else if (key === 'layoutDensity') setLayoutDensity(value)
     else if (key === 'theme') setTheme(value)
+    else if (key === 'branchPalette') setBranchPalette(value)
     else if (key === 'showRemote') { setShowRemote(value); setFilter('all') }
     try {
       await window.gitGraph.settings.set(key, value)
@@ -680,6 +695,7 @@ function App() {
         else if (key === 'autoFetchMinutes') setAutoFetchMinutes(previous)
         else if (key === 'layoutDensity') setLayoutDensity(previous)
         else if (key === 'theme') setTheme(previous)
+        else if (key === 'branchPalette') setBranchPalette(previous)
         else if (key === 'showRemote') setShowRemote(previous)
       }
       setError(e.message || String(e))
@@ -724,7 +740,7 @@ function App() {
       const settings = settingResult.status === 'fulfilled' ? settingResult.value : { showRemote: true, leftOpen: true, rightOpen: true, groupTabs: false, showUngroupedLabel: false, tabLabelWidth: 220, autoFetchMinutes: 0, layoutDensity: 'comfortable' }
       if (settingResult.status === 'rejected') setError(settingResult.reason?.message || String(settingResult.reason))
       setAISettings(old => Object.fromEntries(Object.keys(old).map(key => [key, settings[key] ?? old[key]])) as typeof old)
-      setTheme(settings.theme === 'light' ? 'light' : 'dark'); setShowRemote(settings.showRemote); setLeftOpen(settings.leftOpen); setRightOpen(settings.rightOpen); setGroupTabs(settings.groupTabs === true); setShowUngroupedLabel(settings.showUngroupedLabel === true); setTabLabelWidth(Number.isInteger(settings.tabLabelWidth) ? settings.tabLabelWidth : 220); setAutoFetchMinutes(Number.isInteger(settings.autoFetchMinutes) ? settings.autoFetchMinutes : 0); setLayoutDensity(settings.layoutDensity === 'compact' ? 'compact' : 'comfortable')
+      setTheme(settings.theme === 'light' ? 'light' : 'dark'); if (settings.branchPalette && typeof settings.branchPalette === 'object') setBranchPalette(settings.branchPalette); setShowRemote(settings.showRemote); setLeftOpen(settings.leftOpen); setRightOpen(settings.rightOpen); setGroupTabs(settings.groupTabs === true); setShowUngroupedLabel(settings.showUngroupedLabel === true); setTabLabelWidth(Number.isInteger(settings.tabLabelWidth) ? settings.tabLabelWidth : 220); setAutoFetchMinutes(Number.isInteger(settings.autoFetchMinutes) ? settings.autoFetchMinutes : 0); setLayoutDensity(settings.layoutDensity === 'compact' ? 'compact' : 'comfortable')
       if (projectResult.status === 'rejected') throw projectResult.reason
       const state = projectResult.value
       setProjects(state.projects); setFolders(state.folders || []); setDefaultProject(state.defaultProject)
@@ -796,8 +812,8 @@ function App() {
   useEffect(() => { if (!repo || !selected) { setDiff({ text: '' }); return }; let active = true; setDiff({ loading: true, text: '' }); window.gitGraph.diff(repo.root, selected.hash).then(value => { if (active) setDiff({ text: value }) }).catch(e => { if (active) setDiff({ text: '', error: 'No se pudo cargar el diff: ' + (e.message || e) }) }); return () => { active = false } }, [repo?.root, selected?.hash])
   useEffect(() => { const onKey = e => { if (showSettings && ((e.ctrlKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')))) { e.preventDefault(); document.querySelector<HTMLInputElement>('.settings-search input')?.focus(); return } if (!showSettings && (((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')))) { e.preventDefault(); setSearchOpen(true); setTimeout(() => document.querySelector<HTMLInputElement>('.search-input')?.focus(), 0) } if (!showSettings && e.key === 'Escape') setSelected(null) }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey) }, [showSettings])
   return <main className="app" data-density={layoutDensity}>
-    <div className="appbar"><div className="appbar-brand"><img src="./logo.svg" width={18} height={18} alt=""/><strong>Git Glam</strong></div><div className="app-menu"><button onClick={() => setMenu(menu === 'file' ? null : 'file')}>Archivo</button><button onClick={() => setMenu(menu === 'view' ? null : 'view')}>Ver</button><button onClick={() => setMenu(menu === 'help' ? null : 'help')}>Ayuda</button>{menu && <div className="menu-popup">{menu === 'file' && <><button onClick={() => { setMenu(null); load(true) }}>Abrir repositorio…</button><button onClick={() => { setMenu(null); setShowSettings(true) }}>Ajustes…</button></>}{menu === 'view' && <><button onClick={() => { changeSetting('leftOpen', !leftOpen); setMenu(null) }}>{leftOpen ? '✓ ' : ''}Panel de ramas</button><button onClick={() => { changeSetting('rightOpen', !rightOpen); setMenu(null) }}>{rightOpen ? '✓ ' : ''}Panel de cambios</button></>}{menu === 'help' && <div className="menu-info">Git Glam · Explorador de repositorios<br/>Pulsa / para buscar commits.</div>}</div>}</div><div className="appbar-center" title={repo?.root}>{repo ? repo.root.split(/[\\/]/).pop() + ' — Git Glam' : 'Git Glam'}</div><div className="appbar-panels"><button className="tool-button" title="Issues, solicitudes de cambio, milestones y CI" aria-label="Ver issues, solicitudes de cambio, milestones y CI" disabled={!repo} onClick={() => setIssuesOpen(true)}><CircleDot size={16}/></button>{aiSettings.showAI && aiSettings.showAIImprovements && <button className="tool-button" title="Pedir mejoras a la IA" aria-label="Pedir mejoras a la IA" disabled={!repo} onClick={() => setImproveOpen(true)}><Lightbulb size={16}/></button>}{aiSettings.showAI && aiSettings.showAIAgent && <button className="tool-button" title="Chat con agente" aria-label="Abrir chat con agente" disabled={!repo} onClick={() => setAgentOpen(true)}><Bot size={16}/></button>}<button className="tool-button" title="Ajustes" aria-label="Abrir ajustes" onClick={() => setShowSettings(true)}><Settings size={16}/></button><button className="tool-button" title="Panel de ramas" aria-label="Mostrar u ocultar ramas" disabled={showProjects && !showSettings} onClick={() => changeSetting('leftOpen', !leftOpen)}><span className={"panel-icon left " + (leftOpen && !showProjects && !showSettings ? "panel-visible" : "")}><PanelLeft size={16}/></span></button><button className="tool-button" title="Panel de cambios" aria-label="Mostrar u ocultar cambios" disabled={showProjects && !showSettings} onClick={() => changeSetting('rightOpen', !rightOpen)}><span className={"panel-icon right " + (rightOpen && !showProjects && !showSettings ? "panel-visible" : "")}><PanelRight size={16}/></span></button></div></div>
-    {showSettings && <SettingsPage aiSettings={aiSettings} panelOrder={panelOrder} onPanelOrder={setPanelOrder} onBack={() => setShowSettings(false)} projects={projects} activeProject={activeProject} defaultProject={defaultProject} onDefault={setDefault} showRemote={showRemote} leftOpen={leftOpen} rightOpen={rightOpen} groupTabs={groupTabs} showUngroupedLabel={showUngroupedLabel} tabLabelWidth={tabLabelWidth} autoFetchMinutes={autoFetchMinutes} layoutDensity={layoutDensity} theme={theme} busy={busy} onSetting={changeSetting} onSaveCommand={saveProjectCommand} onSaveAppearance={saveProjectAppearance} initialSection={settingsSection}/>}
+    <div className={"appbar" + (isTauri() ? " tauri-appbar" : "")} data-tauri-drag-region><div className={"appbar-brand" + (isDevelopmentBuild ? " appbar-brand-dev" : "")} data-tauri-drag-region><img src={isDevelopmentBuild ? "./logo-dev.svg" : "./logo.svg"} width={18} height={18} alt=""/><strong>Git Glam</strong>{isDevelopmentBuild && <span className="dev-badge" title="Compilación local de desarrollo">DEV</span>}</div><div className="app-menu"><button onClick={() => setMenu(menu === 'file' ? null : 'file')}>Archivo</button><button onClick={() => setMenu(menu === 'view' ? null : 'view')}>Ver</button><button onClick={() => setMenu(menu === 'help' ? null : 'help')}>Ayuda</button>{menu && <div className="menu-popup">{menu === 'file' && <><button onClick={() => { setMenu(null); load(true) }}>Abrir repositorio…</button><button onClick={() => { setMenu(null); setShowSettings(true) }}>Ajustes…</button></>}{menu === 'view' && <><button onClick={() => { changeSetting('leftOpen', !leftOpen); setMenu(null) }}>{leftOpen ? '✓ ' : ''}Panel de ramas</button><button onClick={() => { changeSetting('rightOpen', !rightOpen); setMenu(null) }}>{rightOpen ? '✓ ' : ''}Panel de cambios</button></>}{menu === 'help' && <div className="menu-info">Git Glam · Explorador de repositorios<br/>Pulsa / para buscar commits.</div>}</div>}</div><div className="appbar-center" data-tauri-drag-region title={repo?.root}>{repo ? repo.root.split(/[\\/]/).pop() + ' — Git Glam' : 'Git Glam'}</div><div className="appbar-panels"><button className="tool-button" title="Issues, solicitudes de cambio, milestones y CI" aria-label="Ver issues, solicitudes de cambio, milestones y CI" disabled={!repo} onClick={() => setIssuesOpen(true)}><CircleDot size={16}/></button>{aiSettings.showAI && aiSettings.showAIImprovements && <button className="tool-button" title="Pedir mejoras a la IA" aria-label="Pedir mejoras a la IA" disabled={!repo} onClick={() => setImproveOpen(true)}><Lightbulb size={16}/></button>}{aiSettings.showAI && aiSettings.showAIAgent && <button className="tool-button" title="Chat con agente" aria-label="Abrir chat con agente" disabled={!repo} onClick={() => setAgentOpen(true)}><Bot size={16}/></button>}<button className="tool-button" title="Ajustes" aria-label="Abrir ajustes" onClick={() => setShowSettings(true)}><Settings size={16}/></button><button className="tool-button" title="Panel de ramas" aria-label="Mostrar u ocultar ramas" disabled={showProjects && !showSettings} onClick={() => changeSetting('leftOpen', !leftOpen)}><span className={"panel-icon left " + (leftOpen && !showProjects && !showSettings ? "panel-visible" : "")}><PanelLeft size={16}/></span></button><button className="tool-button" title="Panel de cambios" aria-label="Mostrar u ocultar cambios" disabled={showProjects && !showSettings} onClick={() => changeSetting('rightOpen', !rightOpen)}><span className={"panel-icon right " + (rightOpen && !showProjects && !showSettings ? "panel-visible" : "")}><PanelRight size={16}/></span></button></div>{isTauri() && <div className="window-controls"><button type="button" title="Minimizar" aria-label="Minimizar ventana" onClick={() => { void getCurrentWindow().minimize() }}><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10"/></svg></button><button type="button" title="Maximizar o restaurar" aria-label="Maximizar o restaurar ventana" onClick={() => { void getCurrentWindow().toggleMaximize() }}><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9"/></svg></button><button type="button" className="window-close" title="Cerrar" aria-label="Cerrar ventana" onClick={() => { void getCurrentWindow().close() }}><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 1.5l9 9m0-9l-9 9"/></svg></button></div>}</div>
+    {showSettings && <SettingsPage aiSettings={aiSettings} branchPalette={branchPalette} paletteOptions={GRAPH_PALETTES} panelOrder={panelOrder} onPanelOrder={setPanelOrder} onBack={() => setShowSettings(false)} projects={projects} activeProject={activeProject} defaultProject={defaultProject} onDefault={setDefault} showRemote={showRemote} leftOpen={leftOpen} rightOpen={rightOpen} groupTabs={groupTabs} showUngroupedLabel={showUngroupedLabel} tabLabelWidth={tabLabelWidth} autoFetchMinutes={autoFetchMinutes} layoutDensity={layoutDensity} theme={theme} busy={busy} onSetting={changeSetting} onSaveCommand={saveProjectCommand} onSaveAppearance={saveProjectAppearance} initialSection={settingsSection}/>}
     {!showSettings && <ProjectTabs onSaveAppearance={saveProjectAppearance}onHideFolder={hideFolder} onMoveTab={moveTab} groupTabs={groupTabs} showUngroupedLabel={showUngroupedLabel} tabLabelWidth={tabLabelWidth} folders={folders} statuses={statuses} projects={visibleProjects} savedProjects={projects} activeProject={activeProject} defaultProject={defaultProject} showProjects={showProjects} loadingProject={loadingProject} refreshingProject={refreshingProject} busy={busy} onProjects={() => setShowProjects(true)} onOpen={openProject} onAdd={() => load(true)} onReorder={reorderTabs} onReorderFolders={reorderFolders} onClose={hideTab}/>}
     {!showSettings && showProjects && <ProjectsPage projects={projects} folders={folders} defaultProject={defaultProject} busy={busy} onAdd={() => load(true)} onOpen={openProject} onDefault={toggleDefault} onRemove={removeProject} onFolderAction={folderAction} onMove={moveProject}/>}
     <div className="workspace" ref={workspaceRef} style={{ display: showProjects || showSettings ? 'none' : undefined }}>
@@ -812,7 +828,7 @@ function App() {
     </header>
     {loadingProject ? <div className="project-loading" role="status" aria-live="polite"><span className="project-loading-icon"><LoaderCircle className="spin" size={22}/></span><strong>Cargando proyecto…</strong><span>{loadingProject}</span></div> : !repo ? <div className="empty"><GitMerge size={38}/><h1>{activeProject ? 'No se pudo abrir el proyecto' : 'Git Glam'}</h1><p>{activeProject ? 'Comprueba que el repositorio esté disponible.' : 'Abre un repositorio para explorar su historial.'}</p>{activeProject ? <button className="open-cta" onClick={() => openProject(activeProject)}>Reintentar</button> : <button className="open-cta" onClick={() => load(true)}><FolderOpen size={16}/> Abrir repositorio</button>}</div> : <>
       <div className="table-head"><span>Grafo</span><span>Descripción</span><span>Fecha</span><span>Autor</span><span>Commit</span></div>
-      <CommitList rowHeight={layoutDensity === 'compact' ? 22 : 28} rows={rows} hasMore={repo.hasMore} loadingMore={loadingMore} onLoadMore={loadMore} selectedHash={selected?.hash} contextHash={commitMenu?.commit.hash} visibleHashes={visibleHashes} query={query} showRemote={showRemote} remotes={repo.remotes} onSelect={setSelected} onContext={openCommitMenu} onRefContext={openRefMenu} onRefOpen={openRef}/>
+      <CommitList rowHeight={layoutDensity === 'compact' ? 22 : 28} rows={rows} hasMore={repo.hasMore} loadingMore={loadingMore} onLoadMore={loadMore} selectedHash={selected?.hash} contextHash={commitMenu?.commit.hash} visibleHashes={visibleHashes} query={query} showRemote={showRemote} palette={branchPalette.preset === 'custom' ? branchPalette.custom : GRAPH_PALETTES[branchPalette.preset] || GRAPH_PALETTES.classic} remotes={repo.remotes} onSelect={setSelected} onContext={openCommitMenu} onRefContext={openRefMenu} onRefOpen={openRef}/>
       {selectedChange && <WorkingDiff root={repo.root} change={selectedChange} version={repo} busy={busy} onHunk={request => changeAction(root => window.gitGraph.applyHunk(root, request))} onDiscardHunk={hunk => setManage({ kind: 'discard-hunk', hunk })} onClose={() => setSelectedChange(null)}/>}
       {selected && !selectedChange && <CommitDetails commit={selected} root={repo.root} diff={diff} formatDate={date} onFileContext={(path, rev, x, y) => setFileMenu({ path, rev, x, y })} onSelectHash={hash => { const target = repo.commits.find(commit => commit.hash === hash); if (target) setSelected(target) }} onClose={() => setSelected(null)}/>}
     </>}
@@ -853,4 +869,4 @@ function App() {
     </div>}
   </main>
 }
-createRoot(document.getElementById('root')!).render(<App />)
+void migrateElectronUi().finally(() => createRoot(document.getElementById('root')!).render(<App />))

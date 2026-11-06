@@ -3,18 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Git history explorer for Windows",
-  "main": "dist-electron/main.cjs",
+  "description": "Git history explorer for Windows, built with Tauri and React",
   "scripts": {
-    "dev": "pnpm build:electron && concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
+    "dev": "tauri dev",
     "build": "vite build",
-    "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --target=node22 --external:electron --outdir=dist-electron --out-extension:.js=.cjs",
     "typecheck": "tsc",
-    "test": "node --test test/*.test.ts",
-    "start": "pnpm build:electron && electron .",
-    "package:win": "vite build && pnpm build:electron && electron-builder --win"
+    "test": "pnpm test:ui && pnpm test:rust",
+    "test:ui": "node --test test/*.test.ts",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
+    "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "package:win": "tauri build --bundles nsis"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -22,32 +23,12 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "concurrently": "^9.1.2",
-    "electron": "^34.0.0",
-    "electron-builder": "^25.1.8",
-    "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
-    "vite": "^6.0.7",
-    "wait-on": "^8.0.2"
-  },
-  "build": {
-    "appId": "com.rubenglam.gitgraph",
-    "productName": "Git Glam",
-    "directories": {
-      "output": "../project-git-branch-release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*",
-      "package.json"
-    ],
-    "win": {
-      "icon": "public/icon.png",
-      "target": "nsis"
-    }
+    "vite": "^6.0.7"
   }
 }

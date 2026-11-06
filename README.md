@@ -1,17 +1,20 @@
 # Git Glam
 
-Explorador de historial Git para Windows, construido con Electron y React. Reutiliza el algoritmo de carriles de `orca-git-graph` y adapta la paleta y los paneles oscuros de Fenix.
+Explorador de historial Git para Windows, construido con Tauri, Rust y React. Reutiliza el algoritmo de carriles de `orca-git-graph` y adapta la paleta y los paneles oscuros de Fenix.
 
 ## Requisitos
 
-Node.js 20 o posterior, pnpm y Git disponible en el PATH. En Windows, instala las dependencias con `pnpm install`.
+Node.js 22.18 o posterior, pnpm, Rust con la cadena MSVC, las herramientas de C++ de Visual Studio, WebView2 y Git en el PATH. Instala las dependencias con `pnpm install`.
 
 ```sh
-pnpm dev              # desarrollo
-pnpm build            # compilación de la interfaz
-pnpm start            # abrir la interfaz compilada
-pnpm package:win      # crear instalador de Windows en release/
+pnpm dev              # aplicación de escritorio en desarrollo
+pnpm build            # compilar la interfaz React
+pnpm typecheck        # comprobar los tipos TypeScript
+pnpm test             # ejecutar las pruebas de interfaz y Rust
+pnpm package:win      # crear el instalador NSIS para Windows
 ```
+
+El instalador se genera en `src-tauri/target/release/bundle/nsis/`. En el primer inicio se importan los datos compatibles de instalaciones anteriores: proyectos, ajustes, conversaciones, mejoras, disposición de la interfaz y tokens. Los datos de origen y las credenciales existentes se conservan.
 
 Al iniciar aparece una pantalla para seleccionar uno de los proyectos guardados o añadir un repositorio. Para abrir un proyecto directamente al iniciar, márcalo como **predeterminado** en esa pantalla; vuelve a pulsar la estrella para desactivarlo. El proyecto predeterminado recuerda su último worktree seleccionado. Puedes volver al selector con la pestaña **Proyectos** y cambiar entre proyectos mediante las pestañas superiores.
 

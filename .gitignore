@@ -2,5 +2,6 @@ node_modules/
 dist/
 release/
 *.log
-dist-electron/
 release-alternate/
+
+src-tauri/target/

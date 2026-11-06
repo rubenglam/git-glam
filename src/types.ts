@@ -129,7 +129,7 @@ export interface RenderOptions {
   unborn?: boolean
 }
 
-/** Bridge exposed by `electron/preload.ts` through `contextBridge`; IPC results are untyped JSON. */
+/** API exposed to React by the Tauri bridge; IPC results are untyped JSON. */
 export interface GitGraphApi {
   isPackaged(): Promise<boolean>
   onRestored(callback: () => void): () => void
