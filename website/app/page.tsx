@@ -1,5 +1,5 @@
 const download = '/download'
-const repository = 'https://github.com/rubenglam/project-git-branch'
+const repository = 'https://github.com/rubenglam/git-glam'
 
 function ProductPreview() {
   const commits = [

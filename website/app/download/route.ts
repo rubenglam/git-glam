@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const latestReleaseMetadata = 'https://github.com/rubenglam/project-git-branch/releases/latest/download/latest.json'
+const latestReleaseMetadata = 'https://github.com/rubenglam/git-glam/releases/latest/download/latest.json'
 
 export async function GET() {
   try {
@@ -20,6 +20,6 @@ export async function GET() {
     return NextResponse.redirect(parsedUrl, 302)
   } catch (error) {
     console.error('Could not locate the latest Git Glam installer:', error)
-    return NextResponse.redirect('https://github.com/rubenglam/project-git-branch/releases/latest', 302)
+    return NextResponse.redirect('https://github.com/rubenglam/git-glam/releases/latest', 302)
   }
 }

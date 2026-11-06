@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
-const repo = 'rubenglam/project-git-branch'
+const repo = 'rubenglam/git-glam'
 const args = process.argv.slice(2)
 const version = args.find(a => /^\d+\.\d+\.\d+$/.test(a))
 const flag = (name: string) => args.indexOf(name)
