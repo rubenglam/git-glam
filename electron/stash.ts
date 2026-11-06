@@ -45,7 +45,7 @@ async function untrackedParent(dir, hash) {
 async function stashExtras(dir, hash, args) {
   if (typeof dir !== 'string' || !HASH.test(hash)) throw new Error('Commit no válido')
   const untracked = await untrackedParent(dir, hash).catch(() => null)
-  return untracked ? git(dir, ['-c', 'core.quotepath=false', 'show', '--format=', '--no-ext-diff', '--no-textconv', ...args, untracked, '--']) : ''
+  return untracked ? git(dir, ['-c', 'core.quotepath=false', 'show', '--format=', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/', ...args, untracked, '--']) : ''
 }
 
 export { stashPush, stashApply, stashPop, stashDrop, stashExtras }

@@ -2,6 +2,8 @@ import { app, BrowserWindow, dialog, ipcMain, shell, safeStorage } from 'electro
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import path from 'node:path'
+import { promises as fs } from 'node:fs'
+import os from 'node:os'
 import { createProjectStore } from './projects.ts'
 import { runCommitAction } from './commit-actions.ts'
 import { createSettingsStore } from './settings.ts'
@@ -13,6 +15,7 @@ import * as tags from './tags.ts'
 import * as issues from './issues.ts'
 import * as agentChat from './agent-chat.ts'
 import { createAgentStore } from './agent-store.ts'
+import { createImprovementsStore } from './improvements-store.ts'
 import { createTokenStore, repoKey } from './tokens.ts'
 import { parseNumstat } from './commit-files.ts'
 import * as fileHistory from './file-history.ts'
@@ -163,6 +166,25 @@ app.whenReady().then(() => {
     const error = await shell.openPath(root)
     if (error) throw new Error(error)
   })
+  ipcMain.handle('repo:file-action', async (_event, dir, file, action) => {
+    if (typeof dir !== 'string' || typeof file !== 'string' || !file || file.includes('\0') || path.isAbsolute(file)) throw new Error('Invalid path')
+    const root = (await git(dir, ['rev-parse', '--show-toplevel'])).trim()
+    const target = path.resolve(root, file), relative = path.relative(root, target)
+    if (!relative || relative.startsWith('..' + path.sep) || relative === '..' || path.isAbsolute(relative)) throw new Error('Path outside repository')
+    if (action === 'open') { const error = await shell.openPath(target); if (error) throw new Error(error) }
+    else if (action === 'reveal') { await fs.access(target); shell.showItemInFolder(target) }
+    else if (action === 'head') {
+      const result = await run('git', ['show', 'HEAD:' + file], { cwd: root, encoding: 'buffer', maxBuffer: 32 * 1024 * 1024, windowsHide: true })
+      const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'git-glam-head-'))
+      const snapshot = path.join(folder, path.basename(file)); await fs.writeFile(snapshot, result.stdout)
+      const error = await shell.openPath(snapshot); if (error) throw new Error(error)
+    } else if (action === 'ignore') {
+      const ignore = path.join(root, '.gitignore')
+      let content = ''; try { content = await fs.readFile(ignore, 'utf8') } catch (e) { if (e.code !== 'ENOENT') throw e }
+      const pattern = '/' + file.replace(/([\\*?\[\] !#])/g, '\\$1')
+      if (!content.split(/\r?\n/).includes(pattern)) await fs.appendFile(ignore, (content && !content.endsWith('\n') ? '\n' : '') + pattern + '\n')
+    } else throw new Error('Invalid action')
+  })
   ipcMain.handle('repo:load', (_event, dir, showRemote, limit) => { if (typeof dir !== 'string') throw new Error('Ruta no válida'); return loadRepo(dir, showRemote !== false, limit) })
   ipcMain.handle('repo:history', (_event, dir, showRemote, limit) => { if (typeof dir !== 'string') throw new Error('Ruta no válida'); return loadHistory(dir, showRemote !== false, pageLimit(limit)) })
   ipcMain.handle('repo:commit-action', (_event, dir, request) => runCommitAction(dir, request))
@@ -174,6 +196,7 @@ app.whenReady().then(() => {
   ipcMain.handle('repo:push', (_event, dir) => pushRepo(dir))
   ipcMain.handle('repo:stage', (_event, dir, paths) => staging.stagePaths(dir, paths))
   ipcMain.handle('repo:unstage', (_event, dir, paths) => staging.unstagePaths(dir, paths))
+  ipcMain.handle('repo:staged-diff', (_event, dir) => staging.stagedDiff(dir))
   ipcMain.handle('repo:working-diff', (_event, dir, request) => staging.workingDiff(dir, request))
   ipcMain.handle('repo:apply-hunk', (_event, dir, request) => staging.applyHunk(dir, request))
   ipcMain.handle('repo:last-message', (_event, dir) => staging.lastCommitMessage(dir))
@@ -214,6 +237,9 @@ app.whenReady().then(() => {
   })
   const agentRuns = new Map()
   const agentStore = createAgentStore(path.join(app.getPath('userData'), 'agent-chats.json'))
+  const improvementsStore = createImprovementsStore(path.join(app.getPath('userData'), 'improvements.json'))
+  ipcMain.handle('improvements:load', (_event, dir) => improvementsStore.load(dir))
+  ipcMain.handle('improvements:save', (_event, dir, data) => improvementsStore.save(dir, data))
   ipcMain.handle('agent:load', (_event, dir) => agentStore.load(dir))
   ipcMain.handle('agent:save', (_event, dir, data) => agentStore.save(dir, data))
   ipcMain.handle('agent:send', (event, dir, request) => {
@@ -230,12 +256,12 @@ app.whenReady().then(() => {
     if (messageRuns.has(key)) throw new Error('Generaci�n ya iniciada')
     const controller = new AbortController()
     messageRuns.set(key, controller)
-    try { return await branchesCommit.generateCommitMessage(dir, undefined, controller.signal) } finally { messageRuns.delete(key) }
+    try { const preferences = await settings.read(); return await branchesCommit.generateCommitMessage(dir, undefined, controller.signal, preferences.commitModel || preferences.agentModel) } finally { messageRuns.delete(key) }
   })
   ipcMain.handle('repo:cancel-message', (event, id) => { messageRuns.get(`${event.sender.id}:${id}`)?.abort() })
   ipcMain.handle('repo:diff', async (_event, dir, hash) => {
     if (typeof dir !== 'string' || !/^[a-f0-9]{40,64}$/i.test(hash)) throw new Error('Commit no válido')
-    return git(dir, ['-c', 'core.quotepath=false', 'show', '--format=', '--no-ext-diff', '--no-textconv', '--stat', '--patch', '--first-parent', hash, '--']) + await stash.stashExtras(dir, hash, ['--stat', '--patch'])
+    return await git(dir, ['-c', 'core.quotepath=false', 'show', '--format=', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/', '--stat', '--patch', '--first-parent', hash, '--']) + await stash.stashExtras(dir, hash, ['--stat', '--patch'])
   })
   ipcMain.handle('repo:commit-files', async (_event, dir, hash) => {
     if (typeof dir !== 'string' || !/^[a-f0-9]{40,64}$/i.test(hash)) throw new Error('Commit no válido')

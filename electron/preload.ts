@@ -3,6 +3,7 @@ contextBridge.exposeInMainWorld('gitGraph', {
   isPackaged: () => ipcRenderer.invoke('app:is-packaged'),
   onRestored: callback => { const listener = () => callback(); ipcRenderer.on('app:restored', listener); return () => ipcRenderer.removeListener('app:restored', listener) },
   open: () => ipcRenderer.invoke('repo:open'),
+  fileAction: (path, file, action) => ipcRenderer.invoke('repo:file-action', path, file, action),
   openFolder: path => ipcRenderer.invoke('repo:open-folder', path),
   load: (path, showRemote, limit) => ipcRenderer.invoke('repo:load', path, showRemote, limit),
   history: (path, showRemote, limit) => ipcRenderer.invoke('repo:history', path, showRemote, limit),
@@ -19,6 +20,7 @@ contextBridge.exposeInMainWorld('gitGraph', {
   push: path => ipcRenderer.invoke('repo:push', path),
   stage: (path, files) => ipcRenderer.invoke('repo:stage', path, files),
   unstage: (path, files) => ipcRenderer.invoke('repo:unstage', path, files),
+  stagedDiff: path => ipcRenderer.invoke('repo:staged-diff', path),
   workingDiff: (path, request) => ipcRenderer.invoke('repo:working-diff', path, request),
   applyHunk: (path, request) => ipcRenderer.invoke('repo:apply-hunk', path, request),
   lastMessage: path => ipcRenderer.invoke('repo:last-message', path),
@@ -50,6 +52,10 @@ contextBridge.exposeInMainWorld('gitGraph', {
   openIssue: url => ipcRenderer.invoke('app:open-issue', url),
   generateCommitMessage: (path, id) => ipcRenderer.invoke('repo:generate-message', path, id),
   cancelCommitMessage: id => ipcRenderer.invoke('repo:cancel-message', id),
+  improvements: {
+    load: path => ipcRenderer.invoke('improvements:load', path),
+    save: (path, data) => ipcRenderer.invoke('improvements:save', path, data),
+  },
   agent: {
     send: (path, request) => ipcRenderer.invoke('agent:send', path, request),
     cancel: id => ipcRenderer.invoke('agent:cancel', id),

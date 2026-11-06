@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Folder, FolderOpen, ListTree, Minus, Plus, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Folder, FolderOpen, ListTree, Minus, Plus, Sparkles, Undo2 } from 'lucide-react'
 import { FileIcon } from './file-icon.tsx'
 import { buildFileTree } from './file-tree.ts'
 import { sortChanges, statusLetter } from './change-sort.ts'
@@ -25,7 +25,7 @@ function ChangeRow({ change, staged, active, busy, depth = 0, onPick, onToggle, 
   const kind = raw === 'D' ? 'deleted' : raw === 'M' ? 'modified' : 'added'
   const dir = change.path.includes('/') ? change.path.slice(0, change.path.lastIndexOf('/')) : ''
   const nested = depth !== undefined
-  return <div className={'change-row' + (active ? ' active' : '')} title={`${change.status} ${change.path}`} onContextMenu={event => { event.preventDefault(); if (change.status !== '??') onContext(change.path, event.clientX, event.clientY) }}>
+  return <div className={'change-row' + (active ? ' active' : '')} title={`${change.status} ${change.path}`} onContextMenu={event => { event.preventDefault(); onContext(change, staged, event.clientX, event.clientY) }}>
     <button className={'change-open' + (nested ? ' in-tree' : '')} aria-pressed={active} onClick={() => onPick({ path: change.path, staged, untracked: change.status === '??' })}>{nested && <><Guides depth={depth}/><i className="tree-twisty"/></>}<FileIcon path={change.path}/><span>{change.path.split('/').pop()}{!nested && <small>{dir}</small>}</span></button>
     <b className={'change-status ' + kind}>{raw}</b>
     <DiscardButton busy={busy} paths={[change.path]} onDiscard={onDiscard}/>
@@ -49,7 +49,7 @@ function TreeRows({ nodes, depth, parentKey, byPath, collapsed, onCollapse, ...r
   })
 }
 
-function Section({ title, staged, items, open, onOpen, selected, busy, tree, sort, viewToggle, onPick, onToggle, onDiscard, onContext, empty }: any) {
+function Section({ title, staged, items, open, onOpen, selected, busy, tree, sort, viewToggle, onPick, onToggle, onDiscard, onContext, onReview, empty }: any) {
   const [collapsed, setCollapsed] = useState(() => new Set())
   const flip = key => setCollapsed(old => { const next = new Set(old); if (next.has(key)) next.delete(key); else next.add(key); return next })
   const row = { staged, selected, busy, onPick, onToggle, onDiscard, onContext }
@@ -57,6 +57,7 @@ function Section({ title, staged, items, open, onOpen, selected, busy, tree, sor
     <div className="changes-heading-row">
       <button className="section-toggle changes-heading" aria-expanded={open} onClick={() => onOpen(!open)}>{open ? <ChevronDown size={15}/> : <ChevronRight size={15}/>} {title} <span className="change-count">{items.length}</span></button>
       {viewToggle}
+      {onReview && <button className="change-toggle" disabled={busy} title="Resumir cambios preparados con IA" aria-label="Resumir cambios preparados con IA" onClick={onReview}><Sparkles size={14}/></button>}
       {items.length > 0 && <DiscardButton busy={busy} paths={items.map(change => change.path)} label="todos los cambios" onDiscard={onDiscard}/>}
       {items.length > 0 && <ToggleButton staged={staged} busy={busy} paths={items.map(change => change.path)} label={staged ? 'todo' : 'todos los cambios'} onToggle={onToggle}/>}
     </div>
@@ -91,7 +92,7 @@ function ViewMenu({ tree, sort, onTree, onSort }) {
   </div>
 }
 
-export function ChangesList({ changes, selected, busy, onPick, onStage, onUnstage, onDiscard, onContext }) {
+export function ChangesList({ changes, selected, busy, onPick, onStage, onUnstage, onDiscard, onContext, onReview }) {
   const [stagedOpen, setStagedOpen] = useState(true), [unstagedOpen, setUnstagedOpen] = useState(true)
   const [tree, setTree] = useState(() => stored('changesView', ['tree', 'list'], 'list') === 'tree'), [sort, setSort] = useState(() => stored('changesSort', SORTS.map(([mode]) => mode), 'path'))
   const staged = changes.filter(isStaged), unstaged = changes.filter(isUnstaged)
@@ -103,7 +104,7 @@ export function ChangesList({ changes, selected, busy, onPick, onStage, onUnstag
   const split = staged.length > 0 && stagedOpen && unstagedOpen
   const finish = event => { if (drag.current?.id === event.pointerId) { drag.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId) } }
   return <div className="changes-area" ref={area}>
-    {staged.length > 0 && <div className="changes-pane" ref={pane} style={stagedOpen ? height === null ? { flex: '0 1 auto', maxHeight: '60%' } : { flex: `0 0 ${Math.min(height, maxHeight())}px` } : { flex: 'none' }}><Section title="PREPARADOS" staged items={staged} open={stagedOpen} onOpen={setStagedOpen} selected={selected} busy={busy} tree={tree} sort={sort} viewToggle={viewToggle} onPick={onPick} onToggle={onUnstage} onContext={onContext}/></div>}
+    {staged.length > 0 && <div className="changes-pane" ref={pane} style={stagedOpen ? height === null ? { flex: '0 1 auto', maxHeight: '60%' } : { flex: `0 0 ${Math.min(height, maxHeight())}px` } : { flex: 'none' }}><Section title="PREPARADOS" staged items={staged} open={stagedOpen} onOpen={setStagedOpen} selected={selected} busy={busy} tree={tree} sort={sort} viewToggle={viewToggle} onPick={onPick} onToggle={onUnstage} onContext={onContext} onReview={onReview}/></div>}
     {split && <div className="cd-sep cd-sep-row" role="separator" tabIndex={0} aria-orientation="horizontal" aria-label="Ajustar altura de los cambios preparados" aria-valuemin={MIN_PANE} aria-valuemax={maxHeight()} aria-valuenow={Math.round(pane.current?.offsetHeight || 0)} title="Arrastra para redimensionar; doble clic para restablecer"
       onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); drag.current = { id: event.pointerId, y: event.clientY, h: pane.current.offsetHeight }; event.currentTarget.setPointerCapture(event.pointerId) }}
       onPointerMove={event => { if (drag.current?.id === event.pointerId) resize(drag.current.h + event.clientY - drag.current.y) }}

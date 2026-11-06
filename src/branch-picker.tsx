@@ -47,7 +47,7 @@ export function BranchPicker({ dir, onClose, onDone, onManage }) {
   </div>
 }
 
-export function CommitBox({ dir, changes, publishedTo, disabled, sync, syncing, onSync, onCommitted, onError }) {
+export function CommitBox({ showAICommit, dir, changes, publishedTo, disabled, sync, syncing, onSync, onCommitted, onError }) {
   const draftKey = `gitgraph.commitDraft:${dir}`
   const [message, setMessageState] = useState(() => { try { return localStorage.getItem(draftKey) || '' } catch { return '' } }), [generating, setGenerating] = useState(false), [committing, setCommitting] = useState(false), [amend, setAmend] = useState(false)
   function setMessage(value: string) {
@@ -93,9 +93,9 @@ export function CommitBox({ dir, changes, publishedTo, disabled, sync, syncing, 
   const blocked = unavailable || (!amend && !message.trim())
   return <div className="commit-box">
     <div className="commit-input-wrap">
-      <textarea ref={textarea} rows={2} value={message} disabled={disabled || committing} aria-label="Mensaje de commit" placeholder={amend ? 'Mensaje del commit enmendado (vacío = conservar el actual)' : 'Mensaje (Ctrl+Enter para confirmar)'} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !blocked) { event.preventDefault(); commit() } }}/>
-      <button className={"commit-ai" + (generating ? " generating" : "")} title={generating ? "Detener generaci�n" : "Generar mensaje con IA (Claude Haiku)"} aria-label={generating ? "Detener generaci�n" : "Generar mensaje de commit con IA"} disabled={!generating && (disabled || committing || changes.length === 0)} onClick={generating ? stopGeneration : generate}>{generating ? <Square size={9} fill="currentColor"/> : <Sparkles size={15}/>}</button>
-      <div className="commit-resize" aria-hidden="true" onPointerDown={event => { if (!textarea.current) return; drag.current = { y: event.clientY, height: textarea.current.offsetHeight }; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault() }} onPointerMove={event => { if (drag.current && textarea.current) { manualHeight.current = Math.max(58, drag.current.height + event.clientY - drag.current.y); textarea.current.style.height = `${manualHeight.current}px` } }} onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }} onLostPointerCapture={() => { drag.current = null }}/>
+      <textarea ref={textarea} rows={1} value={message} disabled={disabled || committing} aria-label="Mensaje de commit" placeholder={amend ? 'Mensaje del commit enmendado (vacío = conservar el actual)' : 'Mensaje (Ctrl+Enter para confirmar)'} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !blocked) { event.preventDefault(); commit() } }}/>
+      {(showAICommit || generating) && <button className={"commit-ai" + (generating ? " generating" : "")} title={generating ? "Detener generaci�n" : "Generar mensaje con IA"} aria-label={generating ? "Detener generaci�n" : "Generar mensaje de commit con IA"} disabled={!generating && (disabled || committing || changes.length === 0)} onClick={generating ? stopGeneration : generate}>{generating ? <Square size={9} fill="currentColor"/> : <Sparkles size={15}/>}</button>}
+      <div className="commit-resize" aria-hidden="true" onPointerDown={event => { if (!textarea.current) return; drag.current = { y: event.clientY, height: textarea.current.offsetHeight }; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault() }} onPointerMove={event => { if (drag.current && textarea.current) { manualHeight.current = Math.max(36, drag.current.height + event.clientY - drag.current.y); textarea.current.style.height = `${manualHeight.current}px` } }} onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }} onLostPointerCapture={() => { drag.current = null }}/>
     </div>
     <label className="commit-amend"><input type="checkbox" checked={amend} disabled={disabled || working} onChange={event => toggleAmend(event.target.checked)}/> Enmendar el último commit</label>
     {amend && publishedTo && <p className="commit-warn" role="note">Este commit ya está en {publishedTo}. Enmendarlo reescribe el historial y requerirá un push forzado.</p>}

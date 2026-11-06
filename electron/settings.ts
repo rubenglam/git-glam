@@ -3,8 +3,9 @@ import path from 'node:path'
 import { MODELS, EFFORTS } from './agent-chat.ts'
 import crypto from 'node:crypto'
 
-const defaults = { showRemote: true, leftOpen: true, rightOpen: true, groupTabs: false, showUngroupedLabel: false, tabLabelWidth: 220, autoFetchMinutes: 0, layoutDensity: 'comfortable', theme: 'dark', agentModel: 'claude-sonnet-5-5', agentEffort: 'medium' }
-const valid = (key, value) => key === 'agentModel' ? MODELS.includes(value) : key === 'agentEffort' ? EFFORTS.includes(value) : key === 'theme' ? value === 'dark' || value === 'light' : key === 'layoutDensity' ? value === 'comfortable' || value === 'compact' : key === 'tabLabelWidth' ? Number.isInteger(value) && value >= 80 && value <= 400 : key === 'autoFetchMinutes' ? Number.isInteger(value) && value >= 0 && value <= 120 : typeof value === 'boolean'
+const defaults = { showAI: true, showAIAgent: true, showAIReview: true, showAICommit: true, showAIImprovements: true, showRemote: true, leftOpen: true, rightOpen: true, groupTabs: false, showUngroupedLabel: false, tabLabelWidth: 220, autoFetchMinutes: 0, layoutDensity: 'comfortable', theme: 'dark', agentModel: 'claude-sonnet-5-5', agentEffort: 'medium', chatModel: '', summaryModel: 'claude-haiku-5-5', reviewModel: '', commitModel: 'claude-haiku-5-5', improvementsModel: '' }
+const modelOverrides = ['chatModel', 'summaryModel', 'reviewModel', 'commitModel', 'improvementsModel']
+const valid = (key, value) => key === 'agentModel' ? MODELS.includes(value) : modelOverrides.includes(key) ? value === '' || MODELS.includes(value) : key === 'agentEffort' ? EFFORTS.includes(value) : key === 'theme' ? value === 'dark' || value === 'light' : key === 'layoutDensity' ? value === 'comfortable' || value === 'compact' : key === 'tabLabelWidth' ? Number.isInteger(value) && value >= 80 && value <= 400 : key === 'autoFetchMinutes' ? Number.isInteger(value) && value >= 0 && value <= 120 : typeof value === 'boolean'
 
 function createSettingsStore(file) {
   let state

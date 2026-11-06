@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execFileSync } from 'node:child_process'
 
-import { stagePaths, unstagePaths, workingDiff, applyHunk, lastCommitMessage } from '../electron/staging.ts'
+import { stagePaths, unstagePaths, stagedDiff, workingDiff, applyHunk, lastCommitMessage } from '../electron/staging.ts'
 import { commitChanges } from '../electron/branches-commit.ts'
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' })
 const lines = (n, mark = {}) => Array.from({ length: n }, (_, i) => mark[i + 1] ?? `line ${i + 1}`).join('\n') + '\n'
@@ -44,6 +44,19 @@ test('shows working, staged and untracked diffs', async () => {
   assert.match(await workingDiff(dir, { path: 'u.txt', staged: false }), /new file mode[\s\S]*\+u/)
   await stagePaths(dir, ['a.txt'])
   assert.match(await workingDiff(dir, { path: 'a.txt', staged: true }), /\+two/)
+})
+
+test('staged review diff excludes later unstaged edits', async () => {
+  const dir = await repo()
+  await writeFile(join(dir, 'a.txt'), lines(40, { 2: 'prepared' }))
+  await stagePaths(dir, ['a.txt'])
+  await writeFile(join(dir, 'a.txt'), lines(40, { 2: 'prepared', 38: 'not prepared' }))
+  await writeFile(join(dir, 'new.txt'), 'new staged file\n')
+  await stagePaths(dir, ['new.txt'])
+  const diff = await stagedDiff(dir)
+  assert.match(diff, /\+prepared/)
+  assert.match(diff, /\+new staged file/)
+  assert.doesNotMatch(diff, /not prepared/)
 })
 
 test('stages and unstages a single hunk', async () => {

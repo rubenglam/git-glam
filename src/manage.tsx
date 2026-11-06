@@ -41,7 +41,9 @@ export const stashItems = (stash, open) => [
   { label: 'Eliminar stash…', danger: true, run: () => open({ kind: 'stash-drop', stash }) },
 ]
 
-export const tagItems = (tag, open) => [
+export const tagItems = (tag, open, copy) => [
+  { label: 'Copiar nombre de la etiqueta', run: () => copy(tag.name) },
+  null,
   { label: 'Subir al remoto', run: () => open({ kind: 'tag-push', tag }) },
   null,
   { label: 'Borrar etiqueta…', danger: true, run: () => open({ kind: 'tag-delete', tag }) },

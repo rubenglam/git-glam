@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Archive, Bot, CircleAlert, CircleCheck, CircleDot, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, File, Folder, FolderGit2, FolderOpen, FolderPlus, GitBranch, GitMerge, Cloud, CloudDownload, Ellipsis, LoaderCircle, PanelLeft, PanelRight, Pencil, Plus, RefreshCw, Search, Settings, SquareTerminal, Star, Tag, Trash2, X } from 'lucide-react'
+import { Archive, Bot, Lightbulb, CircleAlert, CircleCheck, CircleDot, ArrowDown, ArrowUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsDownUp, ChevronsUpDown, File, Folder, FolderGit2, FolderOpen, FolderPlus, GitBranch, GitMerge, Cloud, CloudDownload, Ellipsis, LoaderCircle, PanelLeft, PanelRight, Pencil, Plus, RefreshCw, Search, Settings, SquareTerminal, Star, Tag, Trash2, X } from 'lucide-react'
 import { layout, orderHistory } from './graph-layout.ts'
 import type { DiffState, GraphRow } from './types.ts'
 import { graphSegments } from './graph-segments.ts'
@@ -14,9 +14,11 @@ import { ContextMenu } from './dialogs.tsx'
 import { ProjectIcon, PROJECT_COLORS, projectName, colorClasses } from './project-icons.tsx'
 import { ForgeDialog, prefetchForge } from './issues.tsx'
 import { AgentDialog } from './agent-chat.tsx'
+import { ImprovementsDialog } from './improvements.tsx'
 import { ManageDialog, branchItems, graphBranchItems, stashItems, tagItems } from './manage.tsx'
 import { ChangesList, isStaged, isUnstaged } from './changes-list.tsx'
 import { WorkingDiff } from './working-diff.tsx'
+import { Explorer } from './explorer.tsx'
 import lightStyles from './style.css?inline'
 import darkStyles from './style-dark.css?inline'
 
@@ -74,7 +76,7 @@ function Graph({ row, head, rowHeight }) {
 function RefLabel({ name, lane, synced, onContext, onOpen }) {
   const tag = name.startsWith('tag: ')
   const label = name.replace(/^HEAD -> /, '').replace(/^tag: /, '')
-  return <span className="ref" onClick={tag || !onOpen ? undefined : event => { event.stopPropagation(); if (event.detail >= 2) { event.preventDefault(); onOpen(name.replace(/^HEAD -> /, '')) } }} onContextMenu={tag || !onContext ? undefined : event => { event.preventDefault(); event.stopPropagation(); onContext(name.replace(/^HEAD -> /, ''), event) }}><span className="ref-icon" style={{ background: color(lane) }}>{tag ? <Tag size={11}/> : <GitBranch size={11}/>}</span><span className="ref-name">{label}</span>{synced && <span className="ref-remote" title={`También en ${synced}`}><Cloud size={11}/><span className="ref-remote-name">{synced.split('/')[0]}</span></span>}</span>
+  return <span className="ref" onClick={tag || !onOpen ? undefined : event => { event.stopPropagation(); if (event.detail >= 2) { event.preventDefault(); onOpen(name.replace(/^HEAD -> /, '')) } }} onContextMenu={!onContext ? undefined : event => { event.preventDefault(); event.stopPropagation(); onContext(name.replace(/^HEAD -> /, ''), event) }}><span className="ref-icon" style={{ background: color(lane) }}>{tag ? <Tag size={11}/> : <GitBranch size={11}/>}</span><span className="ref-name">{label}</span>{synced && <span className="ref-remote" title={`También en ${synced}`}><Cloud size={11}/><span className="ref-remote-name">{synced.split('/')[0]}</span></span>}</span>
 }
 
 interface CommitRowProps {
@@ -223,12 +225,6 @@ function SyncBar({ repo, busy, syncing, onSync, onPickBranch }) {
   </div>
 }
 
-function SyncBadge({ info }) {
-  if (info.gone) return <em className="sync-badge gone" title={`La rama remota ${info.upstream} ya no existe`}>sin remota</em>
-  if (!info.ahead && !info.behind) return null
-  return <em className="sync-badge" title={`${info.ahead} por enviar · ${info.behind} por recibir (${info.upstream})`}>{info.ahead > 0 && <span>↑{info.ahead}</span>}{info.behind > 0 && <span>↓{info.behind}</span>}</em>
-}
-
 const TAB_COLORS = PROJECT_COLORS
 function useStoredState(key, initial) {
   const [value, setValue] = useState(() => { try { const saved = JSON.parse(localStorage.getItem(key) ?? 'null'); return saved ?? initial } catch { return initial } })
@@ -369,7 +365,8 @@ function App() {
   const [commitMenu, setCommitMenu] = useState<any>(null), [action, setAction] = useState<any>(null), [actionError, setActionError] = useState<string | null>(''), [notice, setNotice] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [checkoutVisible, setCheckoutVisible] = useState(false), checkoutRunning = useRef(false)
-  const [manage, setManage] = useState<any>(null), [manageMenu, setManageMenu] = useState<any>(null), [tags, setTags] = useState<any[]>([]), [tagsOpen, setTagsOpen] = useState(false), [issuesOpen, setIssuesOpen] = useState(false), [agentOpen, setAgentOpen] = useState(false)
+  const [fileReview, setFileReview] = useState<any>(null)
+  const [improveOpen, setImproveOpen] = useState(false), [manage, setManage] = useState<any>(null), [manageMenu, setManageMenu] = useState<any>(null), [tags, setTags] = useState<any[]>([]), [tagsOpen, setTagsOpen] = useState(false), [remotesOpen, setRemotesOpen] = useState(false), [remoteBranches, setRemoteBranches] = useState<any[]>([]), [branchDates, setBranchDates] = useState<Record<string, string>>({}), [issuesOpen, setIssuesOpen] = useState(false), [agentOpen, setAgentOpen] = useState(false)
   const closeManageMenu = useCallback(() => setManageMenu(null), [])
   const settingVersions = useRef({}), [loadingMore, setLoadingMore] = useState(false), loadMoreRef = useRef(false), loadMoreFailed = useRef(-1)
   const projectCache = useRef(new Map()), projectRequest = useRef(0)
@@ -435,8 +432,13 @@ function App() {
       await load()
     } catch (e) { setError(e.message || String(e)) } finally { checkoutRunning.current = false; setBusy(false); setCheckoutVisible(false) }
   }, [repo, busy, load])
+  const copyTag = useCallback(async (name: string) => {
+    try { await navigator.clipboard.writeText(name); setNotice('Copiado al portapapeles') }
+    catch (e) { setError(`No se pudo copiar: ${e.message || String(e)}`) }
+  }, [])
   const openRefMenu = useCallback(async (name, event) => {
     if (!repo) return
+    if (name.startsWith('tag: ')) { openManageMenu(tagItems({ name: name.slice(5) }, setManage, copyTag), event); return }
     const point = { clientX: event.clientX, clientY: event.clientY }
     try {
       const { branches } = await window.gitGraph.branches(repo.root)
@@ -451,7 +453,19 @@ function App() {
       }
       openManageMenu(graphBranchItems(branch, { current: repo.branch, tracking: Boolean(repo.sync?.[branch.name]) }, setManage, direct), point)
     } catch (e) { setError(e.message || String(e)) }
-  }, [repo, load])
+  }, [repo, load, copyTag])
+  const toggleSection = section => ({ branches: () => setBranchesOpen(v => !v), remotes: () => setRemotesOpen(v => !v), worktrees: () => setWorktreesOpen(v => !v), stashes: () => setStashesOpen(v => !v), tags: () => setTagsOpen(v => !v) })[section]()
+  const setAllSections = value => { setBranchesOpen(value); setRemotesOpen(value); setWorktreesOpen(value); setStashesOpen(value); setTagsOpen(value) }
+  useEffect(() => {
+    if (!repo || !leftOpen) return
+    let active = true
+    window.gitGraph.branches(repo.root).then(({ branches }) => {
+      if (!active) return
+      setRemoteBranches(branches.filter(item => item.remote))
+      setBranchDates(Object.fromEntries(branches.filter(item => !item.remote && item.date).map(item => [item.name, item.date])))
+    }).catch(() => { if (active) { setRemoteBranches([]); setBranchDates({}) } })
+    return () => { active = false }
+  }, [repo, leftOpen])
   useEffect(() => {
     if (!repo || !tagsOpen) return
     let active = true
@@ -636,12 +650,14 @@ function App() {
     finally { setBusy(false) }
   }
   function toggleDefault(path) { return setDefault(defaultProject === path ? null : path) }
+  const [aiSettings, setAISettings] = useState({ showAI: true, showAIAgent: true, showAIReview: true, showAICommit: true, showAIImprovements: true, agentModel: 'claude-sonnet-5-5', chatModel: '', summaryModel: 'claude-haiku-5-5', reviewModel: '', commitModel: 'claude-haiku-5-5', improvementsModel: '' })
   async function changeSetting(key, value) {
-    const previous: any = key === 'leftOpen' ? leftOpen : key === 'rightOpen' ? rightOpen : key === 'groupTabs' ? groupTabs : key === 'showUngroupedLabel' ? showUngroupedLabel : key === 'tabLabelWidth' ? tabLabelWidth : key === 'autoFetchMinutes' ? autoFetchMinutes : key === 'layoutDensity' ? layoutDensity : key === 'theme' ? theme : showRemote
+    const previous: any = key in aiSettings ? aiSettings[key] : key === 'leftOpen' ? leftOpen : key === 'rightOpen' ? rightOpen : key === 'groupTabs' ? groupTabs : key === 'showUngroupedLabel' ? showUngroupedLabel : key === 'tabLabelWidth' ? tabLabelWidth : key === 'autoFetchMinutes' ? autoFetchMinutes : key === 'layoutDensity' ? layoutDensity : key === 'theme' ? theme : showRemote
     const version = (settingVersions.current[key] || 0) + 1
     settingVersions.current[key] = version
     if (key === 'showRemote') { ++projectRequest.current; setRefreshingProject(null); setBusy(true) }
-    if (key === 'leftOpen') setLeftOpen(value)
+    if (key in aiSettings) setAISettings(old => ({ ...old, [key]: value }))
+    else if (key === 'leftOpen') setLeftOpen(value)
     else if (key === 'rightOpen') setRightOpen(value)
     else if (key === 'groupTabs') setGroupTabs(value)
     else if (key === 'showUngroupedLabel') setShowUngroupedLabel(value)
@@ -655,7 +671,8 @@ function App() {
       if (key === 'showRemote' && repo) await load(false, value)
     } catch (e) {
       if (settingVersions.current[key] === version) {
-        if (key === 'leftOpen') setLeftOpen(previous)
+        if (key in aiSettings) setAISettings(old => ({ ...old, [key]: previous }))
+        else if (key === 'leftOpen') setLeftOpen(previous)
         else if (key === 'rightOpen') setRightOpen(previous)
         else if (key === 'groupTabs') setGroupTabs(previous)
         else if (key === 'showUngroupedLabel') setShowUngroupedLabel(previous)
@@ -706,6 +723,7 @@ function App() {
       if (cancelled) return
       const settings = settingResult.status === 'fulfilled' ? settingResult.value : { showRemote: true, leftOpen: true, rightOpen: true, groupTabs: false, showUngroupedLabel: false, tabLabelWidth: 220, autoFetchMinutes: 0, layoutDensity: 'comfortable' }
       if (settingResult.status === 'rejected') setError(settingResult.reason?.message || String(settingResult.reason))
+      setAISettings(old => Object.fromEntries(Object.keys(old).map(key => [key, settings[key] ?? old[key]])) as typeof old)
       setTheme(settings.theme === 'light' ? 'light' : 'dark'); setShowRemote(settings.showRemote); setLeftOpen(settings.leftOpen); setRightOpen(settings.rightOpen); setGroupTabs(settings.groupTabs === true); setShowUngroupedLabel(settings.showUngroupedLabel === true); setTabLabelWidth(Number.isInteger(settings.tabLabelWidth) ? settings.tabLabelWidth : 220); setAutoFetchMinutes(Number.isInteger(settings.autoFetchMinutes) ? settings.autoFetchMinutes : 0); setLayoutDensity(settings.layoutDensity === 'compact' ? 'compact' : 'comfortable')
       if (projectResult.status === 'rejected') throw projectResult.reason
       const state = projectResult.value
@@ -778,12 +796,12 @@ function App() {
   useEffect(() => { if (!repo || !selected) { setDiff({ text: '' }); return }; let active = true; setDiff({ loading: true, text: '' }); window.gitGraph.diff(repo.root, selected.hash).then(value => { if (active) setDiff({ text: value }) }).catch(e => { if (active) setDiff({ text: '', error: 'No se pudo cargar el diff: ' + (e.message || e) }) }); return () => { active = false } }, [repo?.root, selected?.hash])
   useEffect(() => { const onKey = e => { if (showSettings && ((e.ctrlKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')))) { e.preventDefault(); document.querySelector<HTMLInputElement>('.settings-search input')?.focus(); return } if (!showSettings && (((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'f') || (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')))) { e.preventDefault(); setSearchOpen(true); setTimeout(() => document.querySelector<HTMLInputElement>('.search-input')?.focus(), 0) } if (!showSettings && e.key === 'Escape') setSelected(null) }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey) }, [showSettings])
   return <main className="app" data-density={layoutDensity}>
-    <div className="appbar"><div className="appbar-brand"><img src="./logo.svg" width={18} height={18} alt=""/><strong>Git Glam</strong></div><div className="app-menu"><button onClick={() => setMenu(menu === 'file' ? null : 'file')}>Archivo</button><button onClick={() => setMenu(menu === 'view' ? null : 'view')}>Ver</button><button onClick={() => setMenu(menu === 'help' ? null : 'help')}>Ayuda</button>{menu && <div className="menu-popup">{menu === 'file' && <><button onClick={() => { setMenu(null); load(true) }}>Abrir repositorio…</button><button onClick={() => { setMenu(null); setShowSettings(true) }}>Ajustes…</button></>}{menu === 'view' && <><button onClick={() => { changeSetting('leftOpen', !leftOpen); setMenu(null) }}>{leftOpen ? '✓ ' : ''}Panel de ramas</button><button onClick={() => { changeSetting('rightOpen', !rightOpen); setMenu(null) }}>{rightOpen ? '✓ ' : ''}Panel de cambios</button></>}{menu === 'help' && <div className="menu-info">Git Glam · Explorador de repositorios<br/>Pulsa / para buscar commits.</div>}</div>}</div><div className="appbar-center" title={repo?.root}>{repo ? repo.root.split(/[\\/]/).pop() + ' — Git Glam' : 'Git Glam'}</div><div className="appbar-panels"><button className="tool-button" title="Issues, solicitudes de cambio, milestones y CI" aria-label="Ver issues, solicitudes de cambio, milestones y CI" disabled={!repo} onClick={() => setIssuesOpen(true)}><CircleDot size={16}/></button><button className="tool-button" title="Chat con agente" aria-label="Abrir chat con agente" disabled={!repo} onClick={() => setAgentOpen(true)}><Bot size={16}/></button><button className="tool-button" title="Ajustes" aria-label="Abrir ajustes" onClick={() => setShowSettings(true)}><Settings size={16}/></button><button className="tool-button" title="Panel de ramas" aria-label="Mostrar u ocultar ramas" disabled={showProjects && !showSettings} onClick={() => changeSetting('leftOpen', !leftOpen)}><span className={"panel-icon left " + (leftOpen && !showProjects && !showSettings ? "panel-visible" : "")}><PanelLeft size={16}/></span></button><button className="tool-button" title="Panel de cambios" aria-label="Mostrar u ocultar cambios" disabled={showProjects && !showSettings} onClick={() => changeSetting('rightOpen', !rightOpen)}><span className={"panel-icon right " + (rightOpen && !showProjects && !showSettings ? "panel-visible" : "")}><PanelRight size={16}/></span></button></div></div>
-    {showSettings && <SettingsPage panelOrder={panelOrder} onPanelOrder={setPanelOrder} onBack={() => setShowSettings(false)} projects={projects} activeProject={activeProject} defaultProject={defaultProject} onDefault={setDefault} showRemote={showRemote} leftOpen={leftOpen} rightOpen={rightOpen} groupTabs={groupTabs} showUngroupedLabel={showUngroupedLabel} tabLabelWidth={tabLabelWidth} autoFetchMinutes={autoFetchMinutes} layoutDensity={layoutDensity} theme={theme} busy={busy} onSetting={changeSetting} onSaveCommand={saveProjectCommand} onSaveAppearance={saveProjectAppearance} initialSection={settingsSection}/>}
+    <div className="appbar"><div className="appbar-brand"><img src="./logo.svg" width={18} height={18} alt=""/><strong>Git Glam</strong></div><div className="app-menu"><button onClick={() => setMenu(menu === 'file' ? null : 'file')}>Archivo</button><button onClick={() => setMenu(menu === 'view' ? null : 'view')}>Ver</button><button onClick={() => setMenu(menu === 'help' ? null : 'help')}>Ayuda</button>{menu && <div className="menu-popup">{menu === 'file' && <><button onClick={() => { setMenu(null); load(true) }}>Abrir repositorio…</button><button onClick={() => { setMenu(null); setShowSettings(true) }}>Ajustes…</button></>}{menu === 'view' && <><button onClick={() => { changeSetting('leftOpen', !leftOpen); setMenu(null) }}>{leftOpen ? '✓ ' : ''}Panel de ramas</button><button onClick={() => { changeSetting('rightOpen', !rightOpen); setMenu(null) }}>{rightOpen ? '✓ ' : ''}Panel de cambios</button></>}{menu === 'help' && <div className="menu-info">Git Glam · Explorador de repositorios<br/>Pulsa / para buscar commits.</div>}</div>}</div><div className="appbar-center" title={repo?.root}>{repo ? repo.root.split(/[\\/]/).pop() + ' — Git Glam' : 'Git Glam'}</div><div className="appbar-panels"><button className="tool-button" title="Issues, solicitudes de cambio, milestones y CI" aria-label="Ver issues, solicitudes de cambio, milestones y CI" disabled={!repo} onClick={() => setIssuesOpen(true)}><CircleDot size={16}/></button>{aiSettings.showAI && aiSettings.showAIImprovements && <button className="tool-button" title="Pedir mejoras a la IA" aria-label="Pedir mejoras a la IA" disabled={!repo} onClick={() => setImproveOpen(true)}><Lightbulb size={16}/></button>}{aiSettings.showAI && aiSettings.showAIAgent && <button className="tool-button" title="Chat con agente" aria-label="Abrir chat con agente" disabled={!repo} onClick={() => setAgentOpen(true)}><Bot size={16}/></button>}<button className="tool-button" title="Ajustes" aria-label="Abrir ajustes" onClick={() => setShowSettings(true)}><Settings size={16}/></button><button className="tool-button" title="Panel de ramas" aria-label="Mostrar u ocultar ramas" disabled={showProjects && !showSettings} onClick={() => changeSetting('leftOpen', !leftOpen)}><span className={"panel-icon left " + (leftOpen && !showProjects && !showSettings ? "panel-visible" : "")}><PanelLeft size={16}/></span></button><button className="tool-button" title="Panel de cambios" aria-label="Mostrar u ocultar cambios" disabled={showProjects && !showSettings} onClick={() => changeSetting('rightOpen', !rightOpen)}><span className={"panel-icon right " + (rightOpen && !showProjects && !showSettings ? "panel-visible" : "")}><PanelRight size={16}/></span></button></div></div>
+    {showSettings && <SettingsPage aiSettings={aiSettings} panelOrder={panelOrder} onPanelOrder={setPanelOrder} onBack={() => setShowSettings(false)} projects={projects} activeProject={activeProject} defaultProject={defaultProject} onDefault={setDefault} showRemote={showRemote} leftOpen={leftOpen} rightOpen={rightOpen} groupTabs={groupTabs} showUngroupedLabel={showUngroupedLabel} tabLabelWidth={tabLabelWidth} autoFetchMinutes={autoFetchMinutes} layoutDensity={layoutDensity} theme={theme} busy={busy} onSetting={changeSetting} onSaveCommand={saveProjectCommand} onSaveAppearance={saveProjectAppearance} initialSection={settingsSection}/>}
     {!showSettings && <ProjectTabs onSaveAppearance={saveProjectAppearance}onHideFolder={hideFolder} onMoveTab={moveTab} groupTabs={groupTabs} showUngroupedLabel={showUngroupedLabel} tabLabelWidth={tabLabelWidth} folders={folders} statuses={statuses} projects={visibleProjects} savedProjects={projects} activeProject={activeProject} defaultProject={defaultProject} showProjects={showProjects} loadingProject={loadingProject} refreshingProject={refreshingProject} busy={busy} onProjects={() => setShowProjects(true)} onOpen={openProject} onAdd={() => load(true)} onReorder={reorderTabs} onReorderFolders={reorderFolders} onClose={hideTab}/>}
     {!showSettings && showProjects && <ProjectsPage projects={projects} folders={folders} defaultProject={defaultProject} busy={busy} onAdd={() => load(true)} onOpen={openProject} onDefault={toggleDefault} onRemove={removeProject} onFolderAction={folderAction} onMove={moveProject}/>}
     <div className="workspace" ref={workspaceRef} style={{ display: showProjects || showSettings ? 'none' : undefined }}>
-    {leftOpen && <aside id="branches-panel" className="left-panel" style={{ width: displayedLeft, order: panelPosition('branches') }}><div className="panel-header">EXPLORADOR<span className="panel-header-actions"><button className="tool-button" title="Abrir repositorio en el explorador de archivos" aria-label="Abrir repositorio en el explorador de archivos" disabled={!repo} onClick={() => { if (repo) window.gitGraph.openFolder(repo.root).catch(e => setError(e.message || String(e))) }}><FolderOpen size={16}/></button></span></div>{repo ? <><div className="panel-repo" title={repo.root}><FolderGit2 size={16}/><strong>{repo.root.split(/[\\/]/).pop()}</strong></div><button className="section-toggle" onClick={() => setBranchesOpen(!branchesOpen)}>{branchesOpen ? <ChevronDown size={15}/> : <ChevronRight size={15}/>} RAMAS <span>{repo.branches.length}</span></button>{branchesOpen && <div className="panel-items"><button className={'side-row '+(filter === 'all' ? 'active' : '')} onClick={() => setFilter('all')}><GitBranch size={15}/><span>Todas las ramas</span></button>{repo.branches.map(branch => <button key={branch} className={'side-row '+(filter === branch ? 'active' : '')} onClick={() => setFilter(branch)} onContextMenu={event => { event.preventDefault(); openManageMenu(branchItems({ ref: 'refs/heads/' + branch, name: branch, remote: false }, { current: repo.branch, tracking: Boolean(repo.sync?.[branch]) }, setManage), event) }} title={branch}><GitBranch size={15}/><span>{branch}</span>{repo.sync?.[branch] && <SyncBadge info={repo.sync[branch]}/>}{branch === repo.branch && <i>actual</i>}</button>)}</div>}<button className="section-toggle" onClick={() => setWorktreesOpen(!worktreesOpen)}>{worktreesOpen ? <ChevronDown size={15}/> : <ChevronRight size={15}/>} WORKTREES <span>{repo.worktrees.length}</span></button>{worktreesOpen && <div className="panel-items">{repo.worktrees.map(worktree => <button key={worktree.path} className={'side-row worktree-row '+(worktree.path.toLowerCase() === repo.root.toLowerCase() ? 'active' : '')} onClick={() => selectWorktree(worktree.path)} title={worktree.path}><FolderGit2 size={15}/><span><b>{worktree.path.split(/[\\/]/).pop()}</b><small>{worktree.branch}</small></span></button>)}</div>}<button className="section-toggle" aria-expanded={stashesOpen} onClick={() => setStashesOpen(!stashesOpen)}>{stashesOpen ? <ChevronDown size={15}/> : <ChevronRight size={15}/>} STASHES <span>{(repo.stashes || []).length}</span></button>{stashesOpen && <div className="panel-items stash-list"><button className="side-add" disabled={busy || !repo.changes.length} title={repo.changes.length ? 'Guardar los cambios locales en un stash' : 'No hay cambios que guardar'} onClick={() => setManage({ kind: 'stash-create' })}><Plus size={14}/> Nuevo stash…</button>{repo.stashes?.length ? repo.stashes.map(stash => <button key={stash.stash + stash.hash} className={'side-row stash-row '+(selected?.stash && selected.hash === stash.hash ? 'active' : '')} title={stash.stash + ' · ' + stash.subject} aria-pressed={Boolean(selected?.stash && selected.hash === stash.hash)} onClick={() => setSelected(stash)} onContextMenu={event => { event.preventDefault(); openManageMenu(stashItems(stash, setManage), event) }}><Archive size={15}/><span><b>{stash.stash}</b><small>{stash.subject}</small></span></button>) : <p className="panel-empty stash-empty">No hay stashes guardados.</p>}</div>}<button className="section-toggle" aria-expanded={tagsOpen} onClick={() => setTagsOpen(!tagsOpen)}>{tagsOpen ? <ChevronDown size={15}/> : <ChevronRight size={15}/>} ETIQUETAS <span>{tags.length}</span></button>{tagsOpen && <div className="panel-items"><button className="side-add" disabled={busy} onClick={() => setManage({ kind: 'tag-create' })}><Plus size={14}/> Nueva etiqueta…</button>{tags.map(tag => <button key={tag.name} className="side-row tag-row" title={tag.name + (tag.message ? ' · ' + tag.message : '')} onClick={() => { const commit = repo.commits.find(item => item.hash === tag.commit); if (commit) setSelected(commit) }} onContextMenu={event => { event.preventDefault(); openManageMenu(tagItems(tag, setManage), event) }}><Tag size={15}/><span>{tag.name}</span>{tag.annotated && <em>anotada</em>}</button>)}{!tags.length && <p className="panel-empty stash-empty">No hay etiquetas.</p>}</div>}</> : <p className="panel-empty">{loadingProject ? 'Cargando ramas y worktrees…' : 'Abre un repositorio para ver sus ramas y worktrees.'}</p>}</aside>}
+    {leftOpen && <aside id="branches-panel" className="left-panel" style={{ width: displayedLeft, order: panelPosition('branches') }}><div className="panel-header">EXPLORADOR<span className="panel-header-actions"><button className="tool-button" title="Actualizar" aria-label="Actualizar el explorador" disabled={!repo || busy} onClick={() => load()}><RefreshCw size={15}/></button><button className="tool-button" title="Contraer todas las secciones" aria-label="Contraer todas las secciones" disabled={!repo} onClick={() => setAllSections(false)}><ChevronsDownUp size={15}/></button><button className="tool-button" title="Expandir todas las secciones" aria-label="Expandir todas las secciones" disabled={!repo} onClick={() => setAllSections(true)}><ChevronsUpDown size={15}/></button><button className="tool-button" title="Abrir repositorio en el explorador de archivos" aria-label="Abrir repositorio en el explorador de archivos" disabled={!repo} onClick={() => { if (repo) window.gitGraph.openFolder(repo.root).catch(e => setError(e.message || String(e))) }}><FolderOpen size={16}/></button></span></div>{repo ? <Explorer repo={repo} filter={filter} selected={selected} busy={busy} tags={tags} remoteBranches={remoteBranches} branchDates={branchDates} open={{ branches: branchesOpen, remotes: remotesOpen, worktrees: worktreesOpen, stashes: stashesOpen, tags: tagsOpen }} onToggle={toggleSection} onFilter={setFilter} onCheckout={openRef} onSelectCommit={setSelected} onSelectWorktree={selectWorktree} onManage={setManage} onCopyTag={copyTag} onMenu={openManageMenu}/> : <p className="panel-empty">{loadingProject ? 'Cargando ramas y worktrees…' : 'Abre un repositorio para ver sus ramas y worktrees.'}</p>}</aside>}
     {leftOpen && <PanelSeparator panel="branches" side={panelSide("branches")} order={panelPosition("branches") + (panelSide("branches") === "left" ? 1 : -1)} width={displayedLeft} maxWidth={maxLeft} onResize={value => setLeftWidth(clamp(value, PANEL_MIN, maxLeft))}/>}
     <section className="graph-area" style={{ order: panelPosition('graph') }} aria-busy={Boolean(loadingProject)}>
     <header className="toolbar">
@@ -800,16 +818,32 @@ function App() {
     </>}
     </section>
     {rightOpen && <PanelSeparator panel="changes" side={panelSide("changes")} order={panelPosition("changes") + (panelSide("changes") === "left" ? 1 : -1)} width={displayedRight} maxWidth={maxRight} onResize={value => setRightWidth(clamp(value, PANEL_MIN, maxRight))}/>}
-    {rightOpen && <aside id="changes-panel" className="right-panel" style={{ width: displayedRight, order: panelPosition('changes') }}><div className="panel-header">CONTROL DE CÓDIGO FUENTE<button className={'tool-button '+(busy?'spin':'')} title="Actualizar (F5)" aria-label="Actualizar cambios" disabled={!repo || busy} onClick={() => load()}><RefreshCw size={16}/></button></div>{repo ? <><SyncBar repo={repo} busy={busy} syncing={syncing} onSync={syncAction} onPickBranch={() => setPickerOpen(true)}/><CommitBox key={repo.root} dir={repo.root} sync={repo.sync?.[repo.branch]} syncing={syncing === 'sync'} onSync={() => syncAction('sync')} changes={repo.changes} publishedTo={publishedTo} disabled={busy} onError={setError} onCommitted={async (_amended, pushed) => { await load(); setNotice(pushed ? 'Commit creado y enviado' : 'Commit creado') }}/><ChangesList onContext={(path, x, y) => setFileMenu({ path, x, y })} changes={repo.changes} selected={selectedChange} busy={busy} onPick={change => { setSelectedChange(change); setSelected(null) }} onStage={paths => changeAction(root => window.gitGraph.stage(root, paths))} onUnstage={paths => changeAction(root => window.gitGraph.unstage(root, paths))} onDiscard={paths => setManage({ kind: 'discard', paths })}/></> : <p className="panel-empty">{loadingProject ? 'Cargando cambios…' : 'Abre un repositorio para ver sus cambios.'}</p>}</aside>}
+    {rightOpen && <aside id="changes-panel" className="right-panel" style={{ width: displayedRight, order: panelPosition('changes') }}><div className="panel-header">CONTROL DE CÓDIGO FUENTE<button className={'tool-button '+(busy?'spin':'')} title="Actualizar (F5)" aria-label="Actualizar cambios" disabled={!repo || busy} onClick={() => load()}><RefreshCw size={16}/></button></div>{repo ? <><SyncBar repo={repo} busy={busy} syncing={syncing} onSync={syncAction} onPickBranch={() => setPickerOpen(true)}/><CommitBox showAICommit={aiSettings.showAI && aiSettings.showAICommit} key={repo.root} dir={repo.root} sync={repo.sync?.[repo.branch]} syncing={syncing === 'sync'} onSync={() => syncAction('sync')} changes={repo.changes} publishedTo={publishedTo} disabled={busy} onError={setError} onCommitted={async (_amended, pushed) => { await load(); setNotice(pushed ? 'Commit creado y enviado' : 'Commit creado') }}/><ChangesList onReview={aiSettings.showAI && aiSettings.showAIReview ? () => { setFileReview({ all: true }); setAgentOpen(true) } : undefined} onContext={(change, staged, x, y) => setFileMenu({ ...change, staged, x, y, working: true })} changes={repo.changes} selected={selectedChange} busy={busy} onPick={change => { setSelectedChange(change); setSelected(null) }} onStage={paths => changeAction(root => window.gitGraph.stage(root, paths))} onUnstage={paths => changeAction(root => window.gitGraph.unstage(root, paths))} onDiscard={paths => setManage({ kind: 'discard', paths })}/></> : <p className="panel-empty">{loadingProject ? 'Cargando cambios…' : 'Abre un repositorio para ver sus cambios.'}</p>}</aside>}
     </div>
     <footer><span title={repo?.root || loadingProject}>{repo?.root || loadingProject || 'Git Glam'}</span>{repo && <span>{repo.branch} · {repo.changes.length} cambios pendientes · {repo.commits.length}{repo.hasMore ? '+' : ''} commits cargados</span>}</footer>
     {pickerOpen && repo && <BranchPicker dir={repo.root} onClose={() => setPickerOpen(false)} onManage={(branch, event) => { setPickerOpen(false); openManageMenu(branchItems(branch, { current: repo.branch, tracking: Boolean(repo.sync?.[branch.name]) }, setManage), event) }} onDone={() => { setPickerOpen(false); load() }}/>}
     {issuesOpen && repo && <ForgeDialog root={repo.root} onClose={() => setIssuesOpen(false)}/>}
-    {agentOpen && repo && <AgentDialog key={repo.root} root={repo.root} onClose={() => setAgentOpen(false)}/>}
+    {improveOpen && repo && <ImprovementsDialog key={repo.root} root={repo.root} onClose={() => setImproveOpen(false)}/>}
+    {agentOpen && repo && <AgentDialog key={repo.root} root={repo.root} fileReview={fileReview} onClose={() => { setAgentOpen(false); setFileReview(null) }}/>}
     {manageMenu && <ContextMenu x={manageMenu.x} y={manageMenu.y} items={manageMenu.items} onClose={closeManageMenu}/>}
     {manage && repo && <ManageDialog request={manage} root={repo.root} onClose={() => setManage(null)} onDone={async notice => { setManage(null); await load(); setNotice(notice) }}/>}
     {commitMenu && !busy && <CommitMenu menu={commitMenu} onClose={closeCommitMenu} onAction={chooseCommitAction}/>}
-    {fileMenu && <FileMenu menu={fileMenu} onClose={closeFileMenu} onHistory={(path, rev) => { setFileMenu(null); setFileHistory({ path, rev }) }}/>}
+    {fileMenu?.working && repo && <ContextMenu x={fileMenu.x} y={fileMenu.y} label="Acciones del archivo" onClose={closeFileMenu} items={[
+      ...(aiSettings.showAI && aiSettings.showAIReview ? [{ label: 'Analizar archivo con IA', run: () => { setFileReview({ path: fileMenu.path, staged: fileMenu.staged }); setAgentOpen(true) } }] : []),
+      { label: 'Abrir cambios', run: () => { setSelectedChange({ path: fileMenu.path, staged: fileMenu.staged, untracked: fileMenu.status === '??' }); setSelected(null) } },
+      { label: 'Abrir archivo', run: () => window.gitGraph.fileAction(repo.root, fileMenu.path, 'open').catch(e => setError(e.message || String(e))) },
+      { label: 'Abrir archivo (HEAD)', disabled: fileMenu.status === '??' || !repo.head || fileMenu.status[0] === 'A', run: () => window.gitGraph.fileAction(repo.root, fileMenu.path, 'head').catch(e => setError(e.message || String(e))) },
+      null,
+      ...(fileMenu.staged ? [{ label: 'Cancelar almacenamiento provisional de los cambios', disabled: busy, run: () => changeAction(root => window.gitGraph.unstage(root, [fileMenu.path])) }] : [
+        { label: 'Descartar cambios', disabled: busy, run: () => setManage({ kind: 'discard', paths: [fileMenu.path] }) },
+        { label: 'Almacenar cambios provisionalmente', disabled: busy, run: () => changeAction(root => window.gitGraph.stage(root, [fileMenu.path])) },
+        { label: 'Añadir a .gitignore', disabled: busy || fileMenu.status !== '??', run: () => changeAction(root => window.gitGraph.fileAction(root, fileMenu.path, 'ignore')) },
+      ]), null,
+      { label: 'Mostrar en el Explorador de archivos', run: () => window.gitGraph.fileAction(repo.root, fileMenu.path, 'reveal').catch(e => setError(e.message || String(e))) },
+      { label: 'Mostrar en la vista Explorador', disabled: true, run: () => {} }, null,
+      { label: 'Historial del archivo', disabled: fileMenu.status === '??', run: () => setFileHistory({ path: fileMenu.path }) },
+    ]}/>}
+    {fileMenu && !fileMenu.working && <FileMenu menu={fileMenu} onClose={closeFileMenu} onHistory={(path, rev) => { setFileMenu(null); setFileHistory({ path, rev }) }}/>}
     {fileHistory && repo && <FileHistoryDialog root={repo.root} path={fileHistory.path} rev={fileHistory.rev} formatDate={date} onClose={() => setFileHistory(null)}/>}
     {action && <CommitActionDialog key={action.type + action.commit.hash} action={action} busy={busy} error={actionError} onCancel={() => setAction(null)} onRun={executeCommitAction}/>}
     {checkoutVisible && <div className="checkout-progress" role="status" aria-live="polite"><div><RefreshCw className="spin" size={22} aria-hidden="true"/><span>Cambiando de rama…</span></div><button type="button" onClick={() => setCheckoutVisible(false)}>Cerrar</button></div>}

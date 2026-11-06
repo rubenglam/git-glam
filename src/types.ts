@@ -133,6 +133,7 @@ export interface RenderOptions {
 export interface GitGraphApi {
   isPackaged(): Promise<boolean>
   onRestored(callback: () => void): () => void
+  fileAction(path: string, file: string, action: string): Promise<void>
   openFolder(path: string): Promise<void>
   open(): Promise<any>
   load(path: string, showRemote?: boolean, limit?: number): Promise<any>
@@ -150,6 +151,7 @@ export interface GitGraphApi {
   push(path: string): Promise<any>
   stage(path: string, files: string[]): Promise<any>
   unstage(path: string, files: string[]): Promise<any>
+  stagedDiff(path: string): Promise<string>
   workingDiff(path: string, request: any): Promise<any>
   applyHunk(path: string, request: any): Promise<any>
   lastMessage(path: string): Promise<string>
@@ -181,6 +183,10 @@ export interface GitGraphApi {
   openIssue(url: string): Promise<any>
   generateCommitMessage(path: string, id: string): Promise<string>
   cancelCommitMessage(id: string): Promise<void>
+  improvements: {
+    load(path: string): Promise<any[]>
+    save(path: string, data: any[]): Promise<void>
+  }
   agent: {
     send(path: string, request: any): Promise<string>
     cancel(id: string): Promise<void>

@@ -163,7 +163,7 @@ async function commitAndPush(dir, message, options: { amend?: boolean } = {}) {
 
 async function changesForMessage(dir) {
   const staged = await hasStaged(dir)
-  const diff = await git(dir, ['-c', 'core.quotepath=false', 'diff', ...(staged ? ['--cached'] : ['HEAD']), '--no-ext-diff', '--no-textconv', '--stat', '--patch']).catch(() => '')
+  const diff = await git(dir, ['-c', 'core.quotepath=false', 'diff', ...(staged ? ['--cached'] : ['HEAD']), '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/', '--stat', '--patch']).catch(() => '')
   const untracked = staged ? '' : (await git(dir, ['ls-files', '--others', '--exclude-standard'])).split(/\r?\n/).filter(Boolean).map(file => `Nuevo archivo: ${file}`).join('\n')
   const text = [diff, untracked].filter(Boolean).join('\n\n')
   return text.length > MAX_DIFF ? text.slice(0, MAX_DIFF) + '\n[…recortado]' : text
@@ -171,9 +171,9 @@ async function changesForMessage(dir) {
 
 const SYSTEM = 'Eres un generador de mensajes de commit. Recibes un diff de git por la entrada estándar. Responde SOLO con el mensaje de commit en formato Conventional Commits (tipo(ámbito opcional): resumen en imperativo, máximo 72 caracteres), opcionalmente seguido de una línea en blanco y un cuerpo breve. Sin comillas, sin bloques de código, sin explicaciones. Escribe el mensaje en inglés.'
 
-function runClaude(input: string, signal?: AbortSignal): Promise<string> {
+function runClaude(input: string, signal?: AbortSignal, model = 'claude-haiku-5-5'): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    const child = spawn('claude', ['-p', '--model', 'haiku', '--tools', '', '--no-session-persistence', '--system-prompt', SYSTEM], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn('claude', ['-p', '--model', model, '--tools', '', '--no-session-persistence', '--system-prompt', SYSTEM], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
     let out = '', err = ''
     const abort = () => child.kill()
     signal?.addEventListener('abort', abort, { once: true })
@@ -188,12 +188,12 @@ function runClaude(input: string, signal?: AbortSignal): Promise<string> {
   })
 }
 
-async function generateCommitMessage(dir, runner: (input: string, signal?: AbortSignal) => Promise<string> = runClaude, signal?: AbortSignal) {
+async function generateCommitMessage(dir, runner: (input: string, signal?: AbortSignal, model?: string) => Promise<string> = runClaude, signal?: AbortSignal, model?: string) {
   assertDir(dir)
   const changes = await changesForMessage(dir)
   if (signal?.aborted) throw new Error('Generaci�n cancelada')
   if (!changes.trim()) throw new Error('No hay cambios para describir')
-  const message = (await runner(changes, signal)).trim().replace(/^```\w*\n?|\n?```$/g, '').trim()
+  const message = (await runner(changes, signal, model)).trim().replace(/^```\w*\n?|\n?```$/g, '').trim()
   if (!message) throw new Error('La IA no devolvió ningún mensaje')
   return message
 }

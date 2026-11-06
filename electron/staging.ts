@@ -35,7 +35,7 @@ async function isTracked(dir, file) {
 // Diff of one file as the working tree sees it: staged=true compares index with HEAD, staged=false the work tree with the index.
 // Untracked files have no index entry, so they are shown as an all-added diff against /dev/null.
 async function rawDiff(dir, file, staged, encoding) {
-  const common = ['diff', '--no-color', '--no-ext-diff', '--no-textconv']
+  const common = ['diff', '--no-color', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/']
   if (staged) return git(dir, [...common, '--cached', '--', file], encoding)
   if (await isTracked(dir, file)) return git(dir, [...common, '--', file], encoding)
   try {
@@ -44,6 +44,11 @@ async function rawDiff(dir, file, staged, encoding) {
     if (error.code === 1 && typeof error.stdout !== 'undefined') return error.stdout // --no-index exits 1 when the files differ
     throw new Error([error.stdout, error.stderr].filter(Boolean).join('\n').trim() || error.message)
   }
+}
+
+async function stagedDiff(dir) {
+  assertDir(dir)
+  return git(dir, ['diff', '--cached', '--no-color', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/'])
 }
 
 async function workingDiff(dir, request) {
@@ -111,4 +116,4 @@ async function lastCommitMessage(dir) {
   try { return (await git(dir, ['log', '-1', '--format=%B'])).trimEnd() } catch { return '' }
 }
 
-export { stagePaths, unstagePaths, workingDiff, applyHunk, discardHunk, discardPaths, lastCommitMessage }
+export { stagePaths, unstagePaths, stagedDiff, workingDiff, applyHunk, discardHunk, discardPaths, lastCommitMessage }
