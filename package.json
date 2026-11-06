@@ -1,6 +1,6 @@
 {
   "name": "git-graph-desktop",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "Git history explorer for Windows, built with Tauri and React",

@@ -1,4 +1,5 @@
 import React, { useState, useSyncExternalStore } from 'react'
+import { ArrowDownToLine, RefreshCw, Sparkles } from 'lucide-react'
 import { isTauri } from '@tauri-apps/api/core'
 import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -71,12 +72,22 @@ export function UpdateToast() {
   const visible = update && dismissed !== update.version && (phase === 'available' || phase === 'downloading' || phase === 'ready' || (phase === 'error' && !!error))
   if (!visible) return null
   return <div className="update-toast" role="status" aria-live="polite">
-    <strong>Nueva versión {update.version}</strong>
-    <p>{phase === 'downloading' ? `Descargando e instalando…${progress !== null ? ` ${progress}%` : ''}` : phase === 'ready' ? 'Reiniciando…' : phase === 'error' ? `No se pudo actualizar: ${error}` : 'Hay una actualización disponible de Git Glam.'}</p>
-    {(phase === 'available' || phase === 'error') && <div className="update-toast-actions">
-      <button className="settings-save" type="button" onClick={() => void installUpdate()}>{phase === 'error' ? 'Reintentar' : 'Actualizar ahora'}</button>
-      <button type="button" onClick={() => setDismissed(update.version)}>Más tarde</button>
-    </div>}
+    <div className="update-toast-icon" aria-hidden="true"><Sparkles size={19} /></div>
+    <div className="update-toast-content">
+      <div className="update-toast-heading">
+        <strong>{phase === 'error' ? 'No se pudo actualizar' : phase === 'ready' ? 'Actualización instalada' : phase === 'downloading' ? 'Actualizando Git Glam' : 'Hay novedades'}</strong>
+        <span className="update-toast-version">v{update.version}</span>
+      </div>
+      <p>{phase === 'downloading' ? 'Descargando e instalando la nueva versión…' : phase === 'ready' ? 'Reiniciando Git Glam…' : phase === 'error' ? error : 'Ya está disponible una nueva versión de Git Glam.'}</p>
+      {phase === 'downloading' && <div className="update-toast-progress">
+        <div className="update-toast-progress-label"><span>Progreso</span><span>{progress !== null ? `${progress}%` : 'En curso'}</span></div>
+        <div className="update-toast-progress-track" role="progressbar" aria-label="Progreso de actualización" aria-valuemin={0} aria-valuemax={100} {...(progress !== null ? { 'aria-valuenow': progress } : {})}><span style={{ width: progress !== null ? `${progress}%` : '35%' }} /></div>
+      </div>}
+      {(phase === 'available' || phase === 'error') && <div className="update-toast-actions">
+        <button className="update-toast-primary" type="button" onClick={() => void installUpdate()}>{phase === 'error' ? <RefreshCw size={14} /> : <ArrowDownToLine size={14} />}{phase === 'error' ? 'Reintentar' : 'Actualizar ahora'}</button>
+        <button className="update-toast-secondary" type="button" onClick={() => setDismissed(update.version)}>Más tarde</button>
+      </div>}
+    </div>
   </div>
 }
 
