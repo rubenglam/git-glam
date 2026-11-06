@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Git Glam",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "identifier": "com.rubenglam.gitgraph.tauri",
   "build": {
     "frontendDist": "../dist",
@@ -28,6 +28,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": [
       "nsis"
     ],
@@ -40,6 +41,13 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJGRkI4MzNBMTU5OThBMUQKUldRZGlwa1ZPb1A3TCtXR0NxdElyejREVVVWVWNDNTFZS3JyL2tuL3lwZmhZTWFZZ0Q1blBvU1kK",
+      "endpoints": ["https://github.com/rubenglam/project-git-branch/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
     }
   }
 }

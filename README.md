@@ -35,3 +35,9 @@ La aplicación muestra hasta 500 commits de las refs locales, incluidas ramas re
 Con clic derecho sobre un commit (o `Shift+F10`) puedes crear una etiqueta ligera o una rama, hacer checkout con HEAD separado, cherry-pick, revert, merge, rebase o reset, y copiar su hash o descripción. Las operaciones muestran un diálogo de confirmación; en un merge se elige el padre para cherry-pick o revert. Reset permite elegir soft, mixed o hard. La aplicación muestra los errores de Git y actualiza el estado después de cada intento. Si una operación produce conflictos, Git puede dejarla en curso para resolverla desde otra herramienta o la terminal. El rebase reescribe el historial y reset hard puede descartar cambios rastreados y eliminar archivos sin seguimiento que impidan escribir los archivos del commit.
 
 La aplicación no ejecuta fetch automáticamente. El diff puede mostrar un error si supera el límite de 16 MiB o tarda más de 15 segundos. Requiere Git local y no sigue automáticamente la selección de Orca. El código de cálculo del grafo procede de `orca-git-graph`, distribuido bajo la licencia MIT incluida.
+
+## Actualizaciones
+
+**Ajustes → Acerca de → Buscar actualizaciones** consulta `latest.json` en la última release de GitHub, descarga el instalador firmado y reinicia la aplicación. Solo está activo en la versión instalada.
+
+Para publicar una versión ejecuta `pnpm release 0.2.0 --notes "Qué cambia" --publish`. El script sube la versión en `package.json`, `tauri.conf.json` y `Cargo.toml`, compila y firma el instalador con `~/.tauri/git-glam.key` (o `TAURI_SIGNING_PRIVATE_KEY_PATH`), genera `latest.json` en `release-updates/<versión>/` y, con `--publish`, crea la release en GitHub con `gh`. Sin `--publish` solo prepara los archivos. Haz commit y push del cambio de versión antes de publicar.

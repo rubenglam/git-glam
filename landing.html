@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10120f" />
+    <meta name="description" content="Git Glam: explora tu historial Git, ramas y cambios en una interfaz clara para Windows." />
+    <title>Git Glam — Tu historial, a simple vista</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/landing.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#inicio" aria-label="Git Glam, inicio"><img src="/logo.svg" alt="" /><span>git glam<span class="brand-dot">.</span></span></a>
+      <nav aria-label="Navegación principal"><a href="#funciones">Funciones</a><a href="#como-funciona">Cómo funciona</a><a class="github-link" href="https://github.com/rubenglam/project-git-branch" target="_blank" rel="noreferrer">GitHub <span>↗</span></a></nav>
+      <a class="nav-download" href="https://github.com/rubenglam/project-git-branch/releases/latest/download/Git-Glam_0.2.0_x64-setup.exe">Descargar <span>↓</span></a>
+    </header>
+
+    <main id="inicio">
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="live-dot"></span> UNA FORMA MÁS CLARA DE VER GIT</div>
+          <h1>Tu historial.<br />En su <span>mejor versión.</span></h1>
+          <p class="hero-description">Todas tus ramas, commits y cambios en una vista que por fin tiene sentido. Git, sin perderte en el camino.</p>
+          <div class="hero-actions"><a class="button-primary" href="https://github.com/rubenglam/project-git-branch/releases/latest/download/Git-Glam_0.2.0_x64-setup.exe"><span class="windows-icon">⊞</span> Descargar para Windows <span class="download-arrow">↓</span></a><a class="text-link" href="https://github.com/rubenglam/project-git-branch" target="_blank" rel="noreferrer">Ver en GitHub <span>↗</span></a></div>
+          <div class="requirements"><span class="check">✓</span> Windows 10 o posterior <i>·</i> Gratis y de código abierto</div>
+        </div>
+
+        <div class="app-scene" aria-label="Vista previa de Git Glam">
+          <div class="scene-glow"></div>
+          <div class="app-window">
+            <div class="window-bar"><div class="window-dots"><i></i><i></i><i></i></div><div class="window-title"><img src="/logo.svg" alt="" /> git-glam <span>/</span> project</div><div class="window-actions"><span>⌕</span><span>−</span><span>□</span><span>×</span></div></div>
+            <div class="app-tabs"><span class="tab-active"><b class="tab-mark">◈</b> git-glam <small>×</small></span><span>orca-git-graph</span><span class="tab-plus">＋</span></div>
+            <div class="app-toolbar"><span class="tiny-icon">☰</span><span class="branch-select"><b>⑂</b> All branches <span>⌄</span></span><span class="toolbar-spacer"></span><span class="search"><b>⌕</b> Search commits... <kbd>⌘ K</kbd></span><span class="tiny-icon">⟳</span><span class="tiny-icon">⚙</span></div>
+            <div class="app-body">
+              <aside class="side-panel"><div class="side-heading">REPOSITORY</div><div class="repo-name"><span>▣</span> project-git-branch <span class="muted">⌄</span></div><div class="side-label">⌄ &nbsp; BRANCHES <span>8</span></div><div class="branch-row selected"><i class="branch-blue"></i> main <b>●</b></div><div class="branch-row"><i class="branch-pink"></i> feature/new-ui</div><div class="branch-row"><i class="branch-violet"></i> refactor/graph</div><div class="branch-row"><i class="branch-green"></i> fix/scroll-state</div><div class="side-label worktrees">⌄ &nbsp; WORKTREES <span>2</span></div><div class="branch-row"><i class="branch-blue"></i> main <em>current</em></div><div class="branch-row"><i class="branch-amber"></i> feature/new-ui</div><div class="side-label worktrees">⌄ &nbsp; STASHES <span>1</span></div><div class="branch-row dim-row">◫ &nbsp; WIP: polish toolbar</div></aside>
+              <div class="commit-area"><div class="table-header"><span>GRAPH</span><span>MESSAGE</span><span>DATE</span><span>AUTHOR</span></div>
+                <div class="commit-row"><div class="graph"><i class="lane blue"></i><i class="lane pink"></i><i class="node blue-node"></i></div><span class="message"><b>Polish project selector and empty state</b><label class="ref blue-ref">main</label></span><span class="date">2 hours ago</span><span class="author"><i>RG</i> Ruben</span></div>
+                <div class="commit-row"><div class="graph"><i class="lane blue"></i><i class="lane pink"></i><i class="node pink-node"></i></div><span class="message">Add keyboard navigation to branch list</span><span class="date">Yesterday</span><span class="author"><i>AL</i> Alex</span></div>
+                <div class="commit-row"><div class="graph"><i class="lane blue"></i><i class="lane pink"></i><i class="node blue-node"></i></div><span class="message">Fix scroll position on worktree switch</span><label class="ref pink-ref">feature/new-ui</label><span class="date">Yesterday</span><span class="author"><i>RG</i> Ruben</span></div>
+                <div class="commit-row"><div class="graph"><i class="lane blue"></i><i class="lane pink"></i><i class="node pink-node"></i></div><span class="message">Update graph layout for merge commits</span><span class="date">2 days ago</span><span class="author"><i>MK</i> Maya</span></div>
+                <div class="commit-row"><div class="graph"><i class="lane blue"></i><i class="node blue-node"></i></div><span class="message">Add repository context menu</span><span class="date">3 days ago</span><span class="author"><i>RG</i> Ruben</span></div>
+                <div class="commit-row"><div class="graph"><i class="lane blue"></i><i class="lane pink short"></i><i class="node blue-node"></i></div><span class="message">Improve commit details panel</span><span class="date">4 days ago</span><span class="author"><i>AL</i> Alex</span></div>
+                <div class="commit-row"><div class="graph"><i class="lane blue"></i><i class="node blue-node"></i></div><span class="message">Initial project setup</span><span class="date">1 week ago</span><span class="author"><i>RG</i> Ruben</span></div>
+                <div class="details-card"><div class="detail-top"><span>Polish project selector and empty state</span><small>2 hours ago · Ruben Glam</small></div><div class="diff-line"><span>−</span> const project = await openRepository()</div><div class="diff-line added"><span>+</span> const project = await selectProject()</div><div class="diff-line added"><span>+</span> showProjectOverview(project)</div></div>
+              </div>
+            </div>
+            <div class="window-status"><span>⑂ main</span><span>● Working tree clean</span><span>7 commits</span></div>
+          </div>
+          <div class="floating-note"><span class="note-icon">⌘</span><span><b>Todo bajo control</b><small>Ramas, cambios y contexto</small></span><span class="note-check">✓</span></div>
+          <div class="scene-caption"><span></span> Una vista más clara de tu proyecto</div>
+        </div>
+        <div class="hero-grid"></div>
+      </section>
+
+      <section class="feature-strip" id="funciones"><div><span class="feature-icon green-icon">⑂</span><span><b>Un grafo que se entiende</b><small>Sigue cada rama y merge de un vistazo.</small></span></div><div><span class="feature-icon purple-icon">⌘</span><span><b>Todo en contexto</b><small>Commits, archivos y diffs en un solo lugar.</small></span></div><div><span class="feature-icon amber-icon">▧</span><span><b>Tus repos, organizados</b><small>Proyectos y worktrees siempre a mano.</small></span></div><div><span class="feature-icon blue-icon">✳</span><span><b>Hecho para Windows</b><small>Ligero, rápido y listo para trabajar.</small></span></div></section>
+
+      <section class="how-section" id="como-funciona"><div class="how-copy"><div class="eyebrow">MENOS FRICCIÓN, MÁS FLUJO</div><h2>Tu repo, a primera vista.</h2><p>Abre un repositorio local y deja que Git Glam ponga cada pieza en su sitio. Sin cuentas, sin configuración complicada.</p></div><div class="how-steps"><div><span>01</span><p><b>Descarga</b><small>Instala Git Glam en unos segundos.</small></p><span class="step-check">✓</span></div><div><span>02</span><p><b>Abre tu proyecto</b><small>Elige cualquier repositorio Git local.</small></p><span class="step-check">✓</span></div><div><span>03</span><p><b>Vuelve a tener el mapa</b><small>Explora ramas, commits y cambios.</small></p><span class="step-check">✓</span></div></div></section>
+
+      <section class="download-banner"><div class="banner-orb"></div><div class="banner-copy"><div class="eyebrow"><span class="live-dot"></span> GIT GLAM PARA WINDOWS</div><h2>Haz que Git vuelva<br />a tener sentido.</h2><p>Gratis. Código abierto. Tu historial, por fin claro.</p></div><div class="banner-cta"><a class="button-primary" href="https://github.com/rubenglam/project-git-branch/releases/latest/download/Git-Glam_0.2.0_x64-setup.exe">↓ &nbsp; Descargar para Windows</a><small>Windows 10 o posterior <span>·</span> v0.2.0</small></div></section>
+    </main>
+    <footer><a class="brand footer-brand" href="#inicio"><img src="/logo.svg" alt="" /><span>git glam<span class="brand-dot">.</span></span></a><span>Hecho para que puedas pensar en tu código.</span><a href="https://github.com/rubenglam/project-git-branch" target="_blank" rel="noreferrer">Código abierto en GitHub ↗</a><small>© 2026 Git Glam</small></footer>
+  </body>
+</html>

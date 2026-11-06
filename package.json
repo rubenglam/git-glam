@@ -1,6 +1,6 @@
 {
   "name": "git-graph-desktop",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Git history explorer for Windows, built with Tauri and React",
@@ -12,10 +12,13 @@
     "test:ui": "node --test test/*.test.ts",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
     "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "package:win": "tauri build --bundles nsis"
+    "package:win": "tauri build --bundles nsis",
+    "release": "node scripts/release.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

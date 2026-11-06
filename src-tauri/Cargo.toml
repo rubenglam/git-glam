@@ -1,6 +1,6 @@
 [package]
 name = "git-glam-tauri"
-version = "0.1.0"
+version = "0.2.1"
 description = "Git Glam desktop host"
 authors = ["RubenGlam"]
 license = "MIT"
@@ -37,4 +37,6 @@ percent-encoding = "2"
 aes-gcm = "0.10"
 windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_Foundation"] }
 tempfile = "3"
+tauri-plugin-updater = "2.14.1"
+tauri-plugin-process = "2.4.0"
 
