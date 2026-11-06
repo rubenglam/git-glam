@@ -94,6 +94,22 @@ fn file_action_inner(dir: &Path, file: &str, action: &str) -> Result<(), String>
     let target = target_path(root, file)?;
     match action {
         "open" => open::that(&target).map_err(|e| e.to_string())?,
+        "vscode" => {
+            if !target.is_file() { return Err("El archivo no existe".into()); }
+            #[cfg(windows)]
+            {
+                let candidates = [
+                    std::env::var_os("LOCALAPPDATA").map(|p| std::path::PathBuf::from(p).join("Programs/Microsoft VS Code/Code.exe")),
+                    std::env::var_os("ProgramFiles").map(|p| std::path::PathBuf::from(p).join("Microsoft VS Code/Code.exe")),
+                    std::env::var_os("ProgramFiles(x86)").map(|p| std::path::PathBuf::from(p).join("Microsoft VS Code/Code.exe")),
+                ];
+                let executable = candidates.into_iter().flatten().find(|p| p.is_file())
+                    .ok_or("No se encontró Visual Studio Code. Usa la aplicación predeterminada o instala VS Code en la ubicación habitual.")?;
+                std::process::Command::new(executable).arg(&target).spawn().map_err(|e| e.to_string())?;
+            }
+            #[cfg(not(windows))]
+            std::process::Command::new("code").arg(&target).spawn().map_err(|e| format!("No se pudo abrir VS Code: {e}"))?;
+        },
         "reveal" => {
             if !target.exists() {
                 return Err("El archivo no existe".into());

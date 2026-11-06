@@ -140,6 +140,9 @@ export interface GitGraphApi {
   history(path: string, showRemote?: boolean, limit?: number): Promise<any>
   diff(path: string, hash: string): Promise<string>
   commitFiles(path: string, hash: string): Promise<any>
+  browseFiles(path: string, folder: string): Promise<{ name: string, path: string, directory: boolean }[]>
+  searchFiles(path: string, query: string): Promise<{ files: { name: string, path: string, directory: boolean }[], truncated: boolean }>
+  previewFile(path: string, file: string): Promise<string>
   fileHistory(path: string, file: string, rev?: string): Promise<any>
   fileBlame(path: string, file: string, rev?: string): Promise<any>
   commitAction(path: string, request: any): Promise<any>

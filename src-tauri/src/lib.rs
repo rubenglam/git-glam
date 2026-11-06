@@ -6,6 +6,7 @@ mod commit_message;
 mod data_store;
 mod diff;
 mod file_history;
+mod file_browser;
 mod forge;
 mod history;
 mod migration;
@@ -69,6 +70,9 @@ pub fn run() {
             is_packaged,
             diff::commit_diff,
             diff::commit_files,
+            file_browser::browse_files,
+            file_browser::preview_file,
+            file_browser::search_files,
             file_history::file_history,
             file_history::file_blame,
             branches::delete_remote_branch,
