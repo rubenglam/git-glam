@@ -203,7 +203,7 @@ export interface GitGraphApi {
     save(path: string, data: any): Promise<any>
     onEvent(callback: (id: string, payload: any) => void): () => void
   }
-  settings: { read(): Promise<any>; set(key: string, value: any): Promise<any> }
+  settings: { read(): Promise<any>; set(key: string, value: any): Promise<any>; revealFile(): Promise<void>; readFile(): Promise<string>; export(): Promise<boolean>; import(): Promise<number | null> }
   projects: {
     list(): Promise<any>
     status(paths: string[]): Promise<any>

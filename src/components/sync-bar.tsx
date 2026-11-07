@@ -13,7 +13,7 @@ export function SyncBar({ repo, busy, syncing, onSync, onPickBranch }) {
   const icon = (kind, Icon) => syncing === kind ? <LoaderCircle className="spin" size={15}/> : <Icon size={15}/>
   const run = kind => { setMenu(false); onSync(kind) }
   const pullTitle = info ? `Pull desde ${info.upstream}` + (info.behind ? ` (${info.behind} por recibir)` : '') : 'Pull'
-  const pushTitle = info ? `Push a ${info.upstream}` + (info.ahead ? ` (${info.ahead} por enviar)` : '') : 'Push (publicará la rama)'
+  const pushTitle = info && !info.gone ? `${info.ahead} commits por enviar · ${info.behind} por recibir\nComparado con ${info.upstream}; datos del último fetch.` : 'Push (publicará la rama)'
   return <><div className="scm-row">
     <button className="branch-button" title="Cambiar de rama" aria-label={'Rama actual: ' + repo.branch + '. Cambiar de rama'} disabled={busy} onClick={onPickBranch}><GitBranch size={15}/><strong>{repo.branch}</strong><ChevronDown size={14}/></button>
     <button className="sync-icon" title={pullTitle} aria-label={pullTitle} disabled={busy || detached} onClick={() => onSync('pull')}>{icon('pull', ArrowDown)}{info?.behind > 0 && <b aria-hidden="true">{info.behind > 99 ? '99+' : info.behind}</b>}</button>
@@ -27,7 +27,7 @@ export function SyncBar({ repo, busy, syncing, onSync, onPickBranch }) {
       </div>}
     </div>
   </div>
-  <div className="git-status" role="status">
-    {detached ? 'HEAD separado: no hay una rama activa para sincronizar.' : !info ? 'Esta rama no tiene una rama de seguimiento configurada.' : info.gone ? `La rama de seguimiento ${info.upstream} ya no existe.` : <><strong>{info.ahead} commits por enviar · {info.behind} por recibir</strong><span>Comparado con {info.upstream}; datos del último fetch.</span></>}
-  </div></>
+  {(detached || !info || info.gone) && <div className="git-status" role="status">
+    {detached ? 'HEAD separado: no hay una rama activa para sincronizar.' : !info ? 'Esta rama no tiene una rama de seguimiento configurada.' : `La rama de seguimiento ${info.upstream} ya no existe.`}
+  </div>}</>
 }

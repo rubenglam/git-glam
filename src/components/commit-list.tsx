@@ -26,6 +26,7 @@ interface CommitRowProps {
   contextActive: boolean
   matches: boolean
   showRemote: boolean
+  showHeadBadge: boolean
   palette: string[]
   remotes: string[]
   onSelect: (commit: any) => void
@@ -45,20 +46,20 @@ interface CommitListProps extends Omit<CommitRowProps, 'row' | 'selected' | 'con
   onLoadMore: () => void
 }
 
-const CommitRow = React.memo(function CommitRow({ row, rowHeight, selected, contextActive, matches, showRemote, palette, remotes, onSelect, onContext, onRefContext, onRefOpen }: CommitRowProps) {
+const CommitRow = React.memo(function CommitRow({ row, rowHeight, selected, contextActive, matches, showRemote, showHeadBadge, palette, remotes, onSelect, onContext, onRefContext, onRefOpen }: CommitRowProps) {
   const commit = row.commit, isHead = commit.refs.some(r => r.startsWith('HEAD'))
   const isRemote = name => remotes.some(remote => name.replace(/^HEAD -> /, '').startsWith(remote + '/'))
   const names = new Set(commit.refs.map(r => r.replace(/^HEAD -> /, '')))
   const syncedRemote = ref => { const name = ref.replace(/^HEAD -> /, ''); return isRemote(name) || ref.startsWith('tag: ') ? undefined : remotes.map(remote => remote + '/' + name).find(full => names.has(full)) }
   const merged = new Set(commit.refs.map(syncedRemote).filter(Boolean))
   const visibleRefs = commit.refs.filter(ref => !merged.has(ref) && (showRemote || !isRemote(ref))).map(ref => ({ ref, synced: showRemote ? syncedRemote(ref) : undefined }))
-  return <button className={'commit-row '+(selected?'selected ':'')+(contextActive?'context-active ':'')+(isHead?'head ':'')+(!matches?'dim ':'')+(commit.parents.length > 1 ? 'merge':'')} onClick={() => onSelect(commit)} onContextMenu={event => { event.preventDefault(); onContext(commit, event.clientX, event.clientY, event.currentTarget) }} onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); onContext(commit, rect.left + 20, rect.bottom, event.currentTarget) } }}><Graph row={row} head={isHead} rowHeight={rowHeight} palette={palette}/><span className="commit-message">{isHead && <span className="head-badge" title="Estás aquí: HEAD apunta a este commit">HEAD</span>}{visibleRefs.map(({ ref, synced }) => <RefLabel key={ref} name={ref} lane={row.col} synced={synced} palette={palette} onContext={onRefContext} onOpen={onRefOpen}/>)}<span className="subject">{commit.subject}</span></span><span className="date">{date(commit.date)}</span><span className="author">{commit.author}</span><span className="hash">{commit.hash.slice(0,8)}</span></button>
+  return <button className={'commit-row '+(selected?'selected ':'')+(contextActive?'context-active ':'')+(isHead?'head ':'')+(!matches?'dim ':'')+(commit.parents.length > 1 ? 'merge':'')} onClick={() => onSelect(commit)} onContextMenu={event => { event.preventDefault(); onContext(commit, event.clientX, event.clientY, event.currentTarget) }} onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); onContext(commit, rect.left + 20, rect.bottom, event.currentTarget) } }}><Graph row={row} head={isHead} rowHeight={rowHeight} palette={palette}/><span className="commit-message">{isHead && showHeadBadge && <span className="head-badge" title="Estás aquí: HEAD apunta a este commit">HEAD</span>}{visibleRefs.map(({ ref, synced }) => <RefLabel key={ref} name={ref} lane={row.col} synced={synced} palette={palette} onContext={onRefContext} onOpen={onRefOpen}/>)}<span className="subject">{commit.subject}</span></span><span className="date">{date(commit.date)}</span><span className="author">{commit.author}</span><span className="hash">{commit.hash.slice(0,8)}</span></button>
 })
 
 const OVERSCAN = 12
 const LOAD_AHEAD = 60
 
-export const CommitList = React.memo(function CommitList({ rowHeight, rows, hasMore, loadingMore, selectedHash, contextHash, visibleHashes, query, showRemote, palette, remotes, onSelect, onContext, onRefContext, onRefOpen, onLoadMore }: CommitListProps) {
+export const CommitList = React.memo(function CommitList({ rowHeight, rows, hasMore, loadingMore, selectedHash, contextHash, visibleHashes, query, showRemote, showHeadBadge, palette, remotes, onSelect, onContext, onRefContext, onRefOpen, onLoadMore }: CommitListProps) {
   const needle = query.toLowerCase()
   const scroller = useRef<any>(null)
   const [view, setView] = useState({ top: 0, height: 600 })
@@ -79,7 +80,7 @@ export const CommitList = React.memo(function CommitList({ rowHeight, rows, hasM
     <div style={{ paddingTop: start * rowHeight, paddingBottom: (rows.length - end) * rowHeight }}>{rows.slice(start, end).map(row => {
       const c = row.commit
       const matches = (!visibleHashes || visibleHashes.has(c.hash)) && (!needle || `${c.subject} ${c.message} ${c.author} ${c.email} ${c.hash} ${c.refs.join(' ')}`.toLowerCase().includes(needle))
-      return <CommitRow key={c.hash} row={row} rowHeight={rowHeight} selected={selectedHash === c.hash} contextActive={contextHash === c.hash} matches={matches} showRemote={showRemote} palette={palette} remotes={remotes} onSelect={onSelect} onContext={onContext} onRefContext={onRefContext} onRefOpen={onRefOpen}/>
+      return <CommitRow key={c.hash} row={row} rowHeight={rowHeight} selected={selectedHash === c.hash} contextActive={contextHash === c.hash} matches={matches} showRemote={showRemote} showHeadBadge={showHeadBadge} palette={palette} remotes={remotes} onSelect={onSelect} onContext={onContext} onRefContext={onRefContext} onRefOpen={onRefOpen}/>
     })}</div>
     {(hasMore || loadingMore) && <div className="history-more" role="status">{loadingMore ? <><LoaderCircle className="spin" size={14}/> Cargando más historial…</> : 'Desplázate para cargar más'}</div>}
   </>}</div>

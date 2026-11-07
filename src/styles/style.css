@@ -1058,3 +1058,5 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .git-status{display:flex;flex-direction:column;gap:3px;margin:8px 12px 0;padding:8px;border:1px solid currentColor;border-radius:6px;font-size:12px;line-height:1.4;overflow-wrap:anywhere}.git-status span{opacity:.8}.sync-explanation{margin:0;font-size:12px;line-height:1.4;opacity:.85;overflow-wrap:anywhere}
 .right-panel .conflict-banner{flex-wrap:wrap;gap:6px;margin:8px 12px 0;border:1px solid;border-radius:6px;font-size:12px}.right-panel .conflict-banner button{margin-left:0}
+
+.settings-row-actions{display:flex;flex-shrink:0;gap:8px}.settings-row-actions .settings-save{white-space:nowrap}.settings-file-view{margin:0 0 4px;padding:12px;max-height:320px;overflow:auto;border:1px solid #cdcfd2;border-radius:6px;background:#f4f5f6;color:#24262a;font:12px/1.5 Consolas,monospace;white-space:pre}

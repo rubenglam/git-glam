@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager, State};
 #[derive(Default)]
 pub struct SettingsLock(Mutex<()>);
 fn defaults() -> Value {
-    json!({"showAI":true,"showAIAgent":true,"showAIReview":true,"showAICommit":true,"showAIImprovements":true,"showRemote":true,"leftOpen":true,"rightOpen":true,"explorerIconsOnly":false,"groupTabs":false,"showUngroupedLabel":false,"tabLabelWidth":220,"autoFetchMinutes":0,"layoutDensity":"comfortable","theme":"dark","branchPalette":{"preset":"classic","custom":["#009ce9","#e30094","#00d625","#e69a00","#aa00e8","#ee4c4c","#00cabc"]},"agentModel":"claude-sonnet-5-5","agentEffort":"medium","chatModel":"","summaryModel":"claude-haiku-5-5","reviewModel":"","commitModel":"claude-haiku-5-5","improvementsModel":""})
+    json!({"showAI":true,"showAIAgent":true,"showAIReview":true,"showAICommit":true,"showAIImprovements":true,"showRemote":true,"leftOpen":true,"rightOpen":true,"explorerIconsOnly":false,"groupTabs":false,"showUngroupedLabel":false,"showHeadBadge":true,"tabLabelWidth":220,"autoFetchMinutes":0,"layoutDensity":"comfortable","theme":"dark","branchPalette":{"preset":"classic","custom":["#009ce9","#e30094","#00d625","#e69a00","#aa00e8","#ee4c4c","#00cabc"]},"agentModel":"claude-sonnet-5-5","agentEffort":"medium","chatModel":"","summaryModel":"claude-haiku-5-5","reviewModel":"","commitModel":"claude-haiku-5-5","improvementsModel":""})
 }
 fn valid(key: &str, value: &Value) -> bool {
     let models = [
@@ -97,6 +97,100 @@ pub fn set_setting(
     state[&key] = value;
     write(&file, &state)?;
     Ok(state)
+}
+#[tauri::command]
+pub fn read_settings_file(app: AppHandle, lock: State<'_, SettingsLock>) -> Result<String, String> {
+    let _guard = lock.0.lock().map_err(|e| e.to_string())?;
+    let file = path(&app)?;
+    match fs::read_to_string(&file) {
+        Ok(text) => Ok(text),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            serde_json::to_string_pretty(&defaults()).map_err(|e| e.to_string())
+        }
+        Err(e) => Err(format!("No se pudo leer el archivo de ajustes: {e}")),
+    }
+}
+/// Returns false when the user cancels the dialog.
+#[tauri::command]
+pub async fn export_settings(app: AppHandle) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = {
+            let lock = app.state::<SettingsLock>();
+            let _guard = lock.0.lock().map_err(|e| e.to_string())?;
+            read(&path(&app)?)?
+        };
+        let Some(target) = rfd::FileDialog::new()
+            .set_file_name("git-glam-settings.json")
+            .add_filter("JSON", &["json"])
+            .save_file()
+        else {
+            return Ok(false);
+        };
+        let text = serde_json::to_string_pretty(&state).map_err(|e| e.to_string())?;
+        fs::write(&target, text).map_err(|e| format!("No se pudieron exportar los ajustes: {e}"))?;
+        Ok(true)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+/// Returns the number of imported settings, or None when the user cancels the dialog.
+#[tauri::command]
+pub async fn import_settings(app: AppHandle) -> Result<Option<usize>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(source) = rfd::FileDialog::new().add_filter("JSON", &["json"]).pick_file() else {
+            return Ok(None);
+        };
+        let bytes = fs::read(&source).map_err(|e| format!("No se pudo leer el archivo: {e}"))?;
+        if bytes.len() > 1024 * 1024 {
+            return Err("El archivo es demasiado grande para ser un archivo de ajustes".into());
+        }
+        let imported: Value = serde_json::from_slice(&bytes).map_err(|_| "El archivo no es un JSON válido")?;
+        let imported = imported.as_object().ok_or("El archivo no contiene ajustes de Git Glam")?;
+        let known = defaults();
+        let mut accepted = Vec::new();
+        for (key, value) in imported {
+            if known.get(key).is_none() {
+                continue;
+            }
+            if !valid(key, value) {
+                return Err(format!("El valor del ajuste «{key}» no es válido; no se importó nada"));
+            }
+            accepted.push((key.clone(), value.clone()));
+        }
+        if accepted.is_empty() {
+            return Err("El archivo no contiene ajustes de Git Glam".into());
+        }
+        let lock = app.state::<SettingsLock>();
+        let _guard = lock.0.lock().map_err(|e| e.to_string())?;
+        let file = path(&app)?;
+        let mut state = read(&file)?;
+        let count = accepted.len();
+        for (key, value) in accepted {
+            state[&key] = value;
+        }
+        write(&file, &state)?;
+        Ok(Some(count))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+pub fn reveal_settings_file(app: AppHandle, lock: State<'_, SettingsLock>) -> Result<(), String> {
+    let file = {
+        let _guard = lock.0.lock().map_err(|e| e.to_string())?;
+        let file = path(&app)?;
+        if !file.exists() {
+            write(&file, &read(&file)?)?;
+        }
+        file
+    };
+    #[cfg(windows)]
+    let result = std::process::Command::new("explorer.exe").arg("/select,").arg(&file).spawn().map(|_| ());
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg("-R").arg(&file).spawn().map(|_| ());
+    #[cfg(all(not(windows), not(target_os = "macos")))]
+    let result = open::that(file.parent().unwrap_or(&file));
+    result.map_err(|e| format!("No se pudo mostrar el archivo de ajustes: {e}"))
 }
 #[cfg(test)]
 mod tests {

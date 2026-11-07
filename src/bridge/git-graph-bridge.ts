@@ -73,7 +73,7 @@ export function createGitGraphBridge(transport: { invoke: (channel: string, ...a
     save: (path, data) => transport.invoke('agent:save', path, data),
     onEvent: callback => { const listener = (_event, id, payload) => callback(id, payload); transport.on('agent:event', listener); return () => transport.removeListener('agent:event', listener) },
   },
-  settings: { read: () => transport.invoke('settings:read'), set: (key, value) => transport.invoke('settings:set', key, value) },
+  settings: { read: () => transport.invoke('settings:read'), set: (key, value) => transport.invoke('settings:set', key, value), revealFile: () => transport.invoke('settings:reveal-file'), readFile: () => transport.invoke('settings:read-file'), export: () => transport.invoke('settings:export'), import: () => transport.invoke('settings:import') },
   projects: {
     list: () => transport.invoke('projects:list'),
     status: paths => transport.invoke('projects:status', paths),
