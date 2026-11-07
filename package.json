@@ -11,8 +11,9 @@
     "website:build": "pnpm --dir website build",
     "website:start": "pnpm --dir website start",
     "typecheck": "tsc",
-    "test": "pnpm test:ui && pnpm test:rust",
+    "test": "pnpm test:ui && pnpm test:components && pnpm test:rust",
     "test:ui": "node --test test/*.test.ts",
+    "test:components": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
     "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "package:win": "tauri build --bundles nsis",
@@ -31,11 +32,16 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^31.0.0",
     "typescript": "^7.0.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^5.1.0"
   }
 }

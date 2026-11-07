@@ -47,3 +47,76 @@ export async function performCommit(api: CommitApi, dir: string, message: string
     return { committed: options.push && /commit se creó/.test(text), pushed: false, error: text }
   }
 }
+
+export type SyncKind = 'fetch' | 'pull' | 'push' | 'sync'
+
+export interface SyncApi {
+  fetch(root: string): Promise<unknown>
+  pull(root: string): Promise<unknown>
+  push(root: string): Promise<unknown>
+  load(root: string, showRemote: boolean, limit?: number): Promise<any>
+}
+
+const SYNC_NOTICES = { fetch: 'Fetch completado', pull: 'Pull completado', push: 'Push completado', sync: 'Sincronización completada' }
+
+// Fetch / pull / push, or the combined sync (fetch, then pull if behind, then push if ahead).
+// Never throws: a failure is returned so the caller can still refresh the repository afterwards.
+export async function runSync(api: SyncApi, root: string, kind: SyncKind, showRemote: boolean, limit?: number): Promise<{ notice?: string, failure?: string }> {
+  try {
+    if (kind === 'sync') {
+      await api.fetch(root)
+      const refreshed = await api.load(root, showRemote, limit)
+      const info = refreshed.sync?.[refreshed.branch]
+      if (!info || info.gone) throw new Error('La rama de seguimiento ya no está disponible tras el fetch. No se ha hecho pull ni push.')
+      if (info.behind) await api.pull(root)
+      if (info.ahead) await api.push(root)
+    } else await api[kind](root)
+    return { notice: SYNC_NOTICES[kind] }
+  } catch (error) { return { failure: errorMessage(error) } }
+}
+
+export interface LatestState {
+  repo?: { root: string, commits: unknown[] } | null
+  busy: boolean
+  showRemote: boolean
+  activeProject: unknown
+}
+
+export interface BackgroundApi {
+  fetch(root: string): Promise<unknown>
+  load(root: string, showRemote: boolean, limit?: number): Promise<any>
+}
+
+// Fetch + reload used by auto-fetch and restore-from-minimize. Returns null if the user did something
+// in the meantime (busy, another project, a newer request), so stale data never overwrites fresh state.
+// API errors propagate to the caller.
+export async function fetchAndReload(api: BackgroundApi, root: string, latest: () => LatestState, request: () => number): Promise<{ data: any, state: LatestState } | null> {
+  const started = request()
+  const stale = (state: LatestState) => started !== request() || state.busy || state.repo?.root !== root
+  await api.fetch(root)
+  const now = latest()
+  if (stale(now)) return null
+  const data = await api.load(root, now.showRemote, now.repo!.commits.length)
+  const after = latest()
+  if (stale(after)) return null
+  return { data, state: after }
+}
+
+export interface ProjectRefreshApi {
+  projects: { select(path: string): Promise<unknown> }
+  load(root: string, showRemote: boolean, limit?: number): Promise<any>
+}
+
+export interface CachedProjectRefresh { selectionError?: string, repo?: any, refreshError?: string }
+
+// Re-opens a cached project: saves the selection and reloads in parallel. Returns null when a newer
+// request superseded this one while it was in flight (the caller must then ignore the result).
+export async function refreshCachedProject(api: ProjectRefreshApi, path: string, cached: { repo: any }, showRemote: boolean, isCurrent: () => boolean): Promise<CachedProjectRefresh | null> {
+  const [selection, refreshed] = await Promise.allSettled([api.projects.select(path), api.load(cached.repo.root, showRemote, cached.repo.commits.length)])
+  if (!isCurrent()) return null
+  const result: CachedProjectRefresh = {}
+  if (selection.status === 'rejected') result.selectionError = `No se pudo guardar la selección: ${errorMessage(selection.reason)}`
+  if (refreshed.status === 'fulfilled') result.repo = refreshed.value
+  else result.refreshError = `No se pudo actualizar «${path}»: ${errorMessage(refreshed.reason)}`
+  return result
+}
