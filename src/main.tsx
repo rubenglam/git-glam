@@ -1,51 +1,52 @@
-import { Conflicts } from './conflicts'
-import { installModalFocus } from './modal-focus.ts'
-import { UpdateNotice, UpdateToast, startUpdateChecks } from './app-updater.tsx'
-import { migrateElectronUi } from './tauri-bridge.ts'
+import { Conflicts } from './components/conflicts'
+import { installModalFocus } from './lib/modal-focus.ts'
+import { UpdateNotice, UpdateToast, startUpdateChecks } from './components/app-updater.tsx'
+import { migrateElectronUi } from './bridge/tauri-bridge.ts'
 import { isTauri } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BookOpen, Bot, BotMessageSquare, Lightbulb, CircleAlert, CircleCheck, CircleDot, ChevronsDownUp, ChevronsUpDown, File, FolderOpen, Github, GitBranch, GitMerge, LoaderCircle, PanelLeft, PanelRight, RefreshCw, Search, Settings, SquareTerminal, X } from 'lucide-react'
-import { layout, orderHistory } from './graph-layout.ts'
+import { layout, orderHistory } from './lib/graph-layout.ts'
 import type { DiffState, GraphRow } from './types.ts'
-import { graphSegments } from './graph-segments.ts'
-import { useBackgroundRefresh, useRefreshShortcut, useSearchShortcuts } from './app-effects.ts'
-import { applySetting } from './settings-flow.ts'
-import { isTabHidden, mergeVisibleOrder, moveTabFlow, openUncachedProject, revealProject } from './project-flow.ts'
-import { applyChange, refreshCachedProject, runSync, updatedSelection } from './repo-flow.ts'
-import { GRAPH_PALETTES, clamp, color, date } from './format.ts'
-import { useStoredState } from './use-stored-state.ts'
-import { ColumnResize, PANEL_MIN, PanelSeparator } from './panel-resize.tsx'
-import { CommitList } from './commit-list.tsx'
-import { ProjectsPage } from './projects-page.tsx'
-import { SyncBar } from './sync-bar.tsx'
-import { ProjectTabs } from './project-tabs.tsx'
+import { graphSegments } from './lib/graph-segments.ts'
+import { useBackgroundRefresh, useRefreshShortcut, useSearchShortcuts } from './hooks/app-effects.ts'
+import { applySetting } from './lib/settings-flow.ts'
+import { openUncachedProject } from './lib/project-flow.ts'
+import { useProjects } from './hooks/use-projects.ts'
+import { applyChange, refreshCachedProject, runSync, updatedSelection } from './lib/repo-flow.ts'
+import { GRAPH_PALETTES, clamp, color, date } from './lib/format.ts'
+import { useStoredState } from './hooks/use-stored-state.ts'
+import { ColumnResize, PANEL_MIN, PanelSeparator } from './components/panel-resize.tsx'
+import { CommitList } from './components/commit-list.tsx'
+import { ProjectsPage } from './components/projects-page.tsx'
+import { SyncBar } from './components/sync-bar.tsx'
+import { ProjectTabs } from './components/project-tabs.tsx'
 
 const isDevelopmentBuild = import.meta.env.DEV
 const appIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
 if (appIcon) appIcon.href = isDevelopmentBuild ? '/logo-dev.svg' : '/logo.svg'
-import { CommitActionDialog, CommitMenu } from './commit-actions.tsx'
-import { CommitDetails } from './commit-details.tsx'
-import { FileHistoryDialog, FileMenu } from './file-history.tsx'
-import { SettingsPage } from './settings.tsx'
-import { BranchPicker, CommitBox } from './branch-picker.tsx'
-import { ContextMenu } from './dialogs.tsx'
-import { ProjectIcon, PROJECT_COLORS, projectName, colorClasses } from './project-icons.tsx'
-import { ForgeDialog, prefetchForge } from './issues.tsx'
-import { AgentDialog } from './agent-chat.tsx'
-import { ImprovementsDialog } from './improvements.tsx'
-import { ManageDialog, branchItems, graphBranchItems, stashItems, tagItems } from './manage.tsx'
-import { ChangesList, isStaged, isUnstaged } from './changes-list.tsx'
-import { WorkingDiff } from './working-diff.tsx'
-import { Explorer } from './explorer.tsx'
-import { DocumentationFilter } from './documentation-filter.tsx'
-import { DocumentationFiles } from './documentation-files.tsx'
-import { AiFiles } from './ai-files.tsx'
-import { RepositoryFiles } from './repository-files.tsx'
-import { FileViewer } from './file-viewer.tsx'
-import lightStyles from './style.css?inline'
-import darkStyles from './style-dark.css?inline'
+import { CommitActionDialog, CommitMenu } from './components/commit-actions.tsx'
+import { CommitDetails } from './components/commit-details.tsx'
+import { FileHistoryDialog, FileMenu } from './components/file-history.tsx'
+import { SettingsPage } from './components/settings.tsx'
+import { BranchPicker, CommitBox } from './components/branch-picker.tsx'
+import { ContextMenu } from './components/dialogs.tsx'
+import { ProjectIcon, PROJECT_COLORS, projectName, colorClasses } from './components/project-icons.tsx'
+import { ForgeDialog, prefetchForge } from './components/issues.tsx'
+import { AgentDialog } from './components/agent-chat.tsx'
+import { ImprovementsDialog } from './components/improvements.tsx'
+import { ManageDialog, branchItems, graphBranchItems, stashItems, tagItems } from './components/manage.tsx'
+import { ChangesList, isStaged, isUnstaged } from './components/changes-list.tsx'
+import { WorkingDiff } from './components/working-diff.tsx'
+import { Explorer } from './components/explorer.tsx'
+import { DocumentationFilter } from './components/documentation-filter.tsx'
+import { DocumentationFiles } from './components/documentation-files.tsx'
+import { AiFiles } from './components/ai-files.tsx'
+import { RepositoryFiles } from './components/repository-files.tsx'
+import { FileViewer } from './components/file-viewer.tsx'
+import lightStyles from './styles/style.css?inline'
+import darkStyles from './styles/style-dark.css?inline'
 
 installModalFocus()
 
@@ -67,8 +68,9 @@ function App() {
   const [explorerIconsOnly, setExplorerIconsOnly] = useState(false)
   const [explorerTab, setExplorerTab] = useState<'git' | 'files' | 'docs' | 'ai'>('git')
   const [leftOpen, setLeftOpen] = useState(true), [rightOpen, setRightOpen] = useState(true), [groupTabs, setGroupTabs] = useState(false), [showUngroupedLabel, setShowUngroupedLabel] = useState(false), [tabLabelWidth, setTabLabelWidth] = useState(220), [autoFetchMinutes, setAutoFetchMinutes] = useState(0), [layoutDensity, setLayoutDensity] = useState('comfortable'), [syncing, setSyncing] = useState<any>(null), [branchesOpen, setBranchesOpen] = useState(true), [worktreesOpen, setWorktreesOpen] = useState(true), [stashesOpen, setStashesOpen] = useState(true), [selectedChange, setSelectedChange] = useState<any>(null), [menu, setMenu] = useState<any>(null)
-  const [projects, setProjects] = useState<any[]>([]), [folders, setFolders] = useState<any[]>([]), [activeProject, setActiveProject] = useState<any>(null)
-  const [statuses, setStatuses] = useState({}), [defaultProject, setDefaultProject] = useState<any>(null), [showProjects, setShowProjects] = useState(true)
+  const { projects, setProjects, folders, setFolders, activeProject, setActiveProject, defaultProject, setDefaultProject, showProjects, setShowProjects, statuses, visibleProjects,
+    hideTab, hideFolder, setDefault, toggleDefault, folderAction, moveProject, moveTab, saveAppearance: saveProjectAppearance, saveCommand: saveProjectCommand, reorderTabs, reorderFolders } =
+    useProjects({ setBusy, setError: setError as (message: string) => void, groupTabs, repoVersion: repo })
   const [theme, setTheme] = useState('dark'), [branchPalette, setBranchPalette] = useState<any>({ preset: 'classic', custom: ['#009ce9', '#e30094', '#00d625', '#e69a00', '#aa00e8', '#ee4c4c', '#00cabc'] })
   useLayoutEffect(() => { themeStyles.textContent = theme === 'light' ? lightStyles : darkStyles }, [theme])
   const [showSettings, setShowSettings] = useState(false)
@@ -274,41 +276,6 @@ function App() {
       if (activeProject === path) { setRepo(null); setSelected(null); setFilter('all'); setShowProjects(true) }
     } catch (e) { setError(e.message || String(e)) } finally { setBusy(false) }
   }
-  async function setDefault(path) {
-    setBusy(true); setError('')
-    try { const state = await window.gitGraph.projects.setDefault(path); setDefaultProject(state.defaultProject) }
-    catch (e) { setError(e.message || String(e)) } finally { setBusy(false) }
-  }
-  async function folderAction(type, id, name) {
-    setBusy(true)
-    try {
-      const state = type === 'create' ? await window.gitGraph.projects.createFolder(name) : type === 'rename' ? await window.gitGraph.projects.renameFolder(id, name) : await window.gitGraph.projects.deleteFolder(id)
-      setFolders(state.folders); setProjects(state.projects)
-    } finally { setBusy(false) }
-  }
-  async function moveProject(path, folderId) {
-    setBusy(true); setError('')
-    try { const state = await window.gitGraph.projects.move(path, folderId); setFolders(state.folders); setProjects(state.projects) }
-    catch (error) { setError(error.message || String(error)) } finally { setBusy(false) }
-  }
-  async function moveTab(path, folderId, targetPath, side) {
-    setBusy(true); setError('')
-    try {
-      const state = await moveTabFlow(window.gitGraph.projects, path, folderId, targetPath, side)
-      setFolders(state.folders ?? folders); setProjects(state.projects)
-    } catch (error) { setError(error.message || String(error)) } finally { setBusy(false) }
-  }
-  async function saveProjectAppearance(path, patch) {
-    const current = projects.find(project => project.path === path) || {}
-    setBusy(true)
-    try { const state = await window.gitGraph.projects.setAppearance(path, { name: current.name, icon: current.icon, color: current.color, colorTargets: current.colorTargets, ...patch }); setProjects(state.projects) }
-    finally { setBusy(false) }
-  }
-  async function saveProjectCommand(path, command) {
-    setBusy(true)
-    try { const state = await window.gitGraph.projects.setCommand(path, command); setProjects(state.projects) }
-    finally { setBusy(false) }
-  }
   async function runProjectCommand() {
     if (!repo || !activeProject || busy || launchingCommand) return
     const project = projects.find(item => item.path === activeProject)
@@ -318,48 +285,6 @@ function App() {
     catch (error) { setError(error.message || String(error)) }
     finally { setLaunchingCommand(false) }
   }
-  const [hiddenTabs, setHiddenTabs] = useStoredState('gitgraph.hiddenTabs', [])
-  const [hiddenFolders, setHiddenFolders] = useStoredState('gitgraph.hiddenFolders', [])
-  const isHidden = project => isTabHidden(project, hiddenTabs, hiddenFolders, groupTabs)
-  const visibleProjects = useMemo(() => projects.filter(project => !isHidden(project)), [projects, hiddenTabs, hiddenFolders, groupTabs])
-  useEffect(() => {
-    const active = !showProjects && projects.find(project => project.path === activeProject)
-    if (!active) return
-    const revealed = revealProject(active, hiddenTabs, hiddenFolders)
-    if (revealed.hiddenTabs !== hiddenTabs) setHiddenTabs(revealed.hiddenTabs)
-    if (revealed.hiddenFolders !== hiddenFolders) setHiddenFolders(revealed.hiddenFolders)
-  }, [activeProject, showProjects, projects, hiddenTabs, hiddenFolders])
-  function hideTab(path) {
-    setHiddenTabs(old => old.includes(path) ? old : [...old, path])
-    if (activeProject === path && !showProjects) setShowProjects(true)
-  }
-  function hideFolder(folderId) {
-    setHiddenFolders(old => old.includes(folderId) ? old : [...old, folderId])
-    if (!showProjects && projects.find(project => project.path === activeProject)?.folderId === folderId) setShowProjects(true)
-  }
-  function reorderTabs(nextVisible, focusPath) {
-    return reorderProjects(mergeVisibleOrder(projects, nextVisible, isHidden), focusPath)
-  }
-  async function reorderProjects(next, focusPath) {
-    if (next === projects || next.every((project, index) => project.path === projects[index]?.path)) return
-    const previous = projects
-    setProjects(next); setBusy(true); setError('')
-    try { const state = await window.gitGraph.projects.reorder(next.map(project => project.path)); setProjects(state.projects) }
-    catch (error) { setProjects(previous); setError(error.message || String(error)) }
-    finally {
-      setBusy(false)
-      if (focusPath) requestAnimationFrame(() => [...document.querySelectorAll<HTMLElement>('.project-tabs-list button')].find(button => button.dataset.projectPath === focusPath)?.focus())
-    }
-  }
-  async function reorderFolders(next) {
-    if (next.every((folder, index) => folder.id === folders[index]?.id)) return
-    const previous = folders
-    setFolders(next); setBusy(true); setError('')
-    try { const state = await window.gitGraph.projects.reorderFolders(next.map(folder => folder.id)); setFolders(state.folders) }
-    catch (error) { setFolders(previous); setError(error.message || String(error)) }
-    finally { setBusy(false) }
-  }
-  function toggleDefault(path) { return setDefault(defaultProject === path ? null : path) }
   const [aiSettings, setAISettings] = useState({ showAI: true, showAIAgent: true, showAIReview: true, showAICommit: true, showAIImprovements: true, agentModel: 'claude-sonnet-5-5', chatModel: '', summaryModel: 'claude-haiku-5-5', reviewModel: '', commitModel: 'claude-haiku-5-5', improvementsModel: '' })
   async function changeSetting(key, value) {
     const setters: Record<string, [unknown, (value: any) => void]> = {
@@ -433,16 +358,6 @@ function App() {
     onRefreshed: (data, state) => { projectCache.current.set(state.activeProject, { repo: data, showRemote: state.showRemote }); setRepo(data); setSelected(old => updatedSelection(data, old)) },
     onError: setError,
   })
-  const projectPaths = projects.map(project => project.path).join('\n')
-  useEffect(() => {
-    if (!projectPaths) { setStatuses({}); return }
-    let cancelled = false
-    const refresh = () => { if (document.hidden) return; window.gitGraph.projects.status(projectPaths.split('\n')).then(result => { if (!cancelled) setStatuses(result) }).catch(() => {}) }
-    refresh()
-    const timer = setInterval(refresh, 30000)
-    window.addEventListener('focus', refresh); document.addEventListener('visibilitychange', refresh)
-    return () => { cancelled = true; clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
-  }, [projectPaths, repo])
   useRefreshShortcut(() => { void load() }, Boolean(repo) && !busy && !showProjects && !showSettings)
   useEffect(() => { if (!repo || !selected) { setDiff({ text: '' }); return }; let active = true; setDiff({ loading: true, text: '' }); window.gitGraph.diff(repo.root, selected.hash).then(value => { if (active) setDiff({ text: value }) }).catch(e => { if (active) setDiff({ text: '', error: 'No se pudo cargar el diff: ' + (e.message || e) }) }); return () => { active = false } }, [repo?.root, selected?.hash])
   useSearchShortcuts(showSettings, () => setSearchOpen(true), () => setSelected(null))

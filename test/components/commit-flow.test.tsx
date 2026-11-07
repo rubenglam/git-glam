@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
-import { ChangesList } from '../../src/changes-list.tsx'
-import { CommitBox } from '../../src/branch-picker.tsx'
-import { applyChange } from '../../src/repo-flow.ts'
+import { ChangesList } from '../../src/components/changes-list.tsx'
+import { CommitBox } from '../../src/components/branch-picker.tsx'
+import { applyChange } from '../../src/lib/repo-flow.ts'
 
 const ROOT = '/repo'
 

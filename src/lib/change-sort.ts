@@ -1,5 +1,5 @@
 // Letter shown for a change in the given area: index status when staged, work-tree status otherwise ("U" for untracked).
-import type { FileChange } from './types.ts'
+import type { FileChange } from '../types.ts'
 
 export const statusLetter = (change: FileChange, staged?: boolean) => staged ? change.status[0] : change.status === '??' ? 'U' : change.status[1]
 

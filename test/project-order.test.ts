@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { moveProjectTab } from '../src/project-order.ts'
+import { moveProjectTab } from '../src/lib/project-order.ts'
 
 test('tabs can move in either direction without losing project data', () => {
   const projects = [{ path: 'a' }, { path: 'b', folderId: 'x' }, { path: 'c' }]

@@ -108,9 +108,10 @@ pub fn run() {
             projects::run_project_command
         ])
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Resized(size) = event {
+            // Minimized windows are not reliably reported as 0x0 (Windows), so ask the window itself.
+            if matches!(event, tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(_)) {
                 use tauri::{Emitter, Manager};
-                let minimized = size.width == 0 || size.height == 0;
+                let minimized = window.is_minimized().unwrap_or(false);
                 let state = window.state::<WindowState>();
                 let was = state.0.swap(minimized, std::sync::atomic::Ordering::SeqCst);
                 if was && !minimized {

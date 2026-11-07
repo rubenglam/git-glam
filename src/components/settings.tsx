@@ -5,7 +5,7 @@ import { DEFAULT_COLOR_TARGETS, PROJECT_ICONS,PROJECT_COLORS, ProjectIcon, folde
 import { ArrowLeft, Folder, FolderGit2, GitBranch, PanelLeft, Search, Info, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { PaletteEditor } from './palette-editor.tsx'
 import { GraphPreview } from './graph-preview.tsx'
-import { MODELS } from './ai-models.ts'
+import { MODELS } from '../lib/ai-models.ts'
 
 const isDevelopmentBuild = import.meta.env.DEV
 

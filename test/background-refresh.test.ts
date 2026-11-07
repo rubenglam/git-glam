@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { fetchAndReload, type LatestState } from '../src/repo-flow.ts'
+import { fetchAndReload, type LatestState } from '../src/lib/repo-flow.ts'
 
 const state = (over: Partial<LatestState> = {}): LatestState => ({ repo: { root: '/r', commits: [1, 2, 3] }, busy: false, showRemote: true, activeProject: '/r', ...over })
 

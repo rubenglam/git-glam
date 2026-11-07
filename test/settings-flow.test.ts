@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applySetting } from '../src/settings-flow.ts'
+import { applySetting } from '../src/lib/settings-flow.ts'
 
 function cell(initial: unknown) {
   const box = { value: initial, history: [initial] as unknown[] }

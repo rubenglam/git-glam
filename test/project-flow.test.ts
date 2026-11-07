@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isTabHidden, mergeVisibleOrder, moveTabFlow, openUncachedProject, revealProject } from '../src/project-flow.ts'
+import { isTabHidden, mergeVisibleOrder, moveTabFlow, openUncachedProject, revealProject } from '../src/lib/project-flow.ts'
 
 const p = (path: string, folderId?: string) => ({ path, folderId })
 

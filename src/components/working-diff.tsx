@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Minus, Plus, Undo2, X } from 'lucide-react'
 import { DiffView } from './diff-view.tsx'
-import type { DiffState } from './types.ts'
+import type { DiffState } from '../types.ts'
 
 // Diff of one pending file, with per-hunk stage/unstage. `version` changes whenever the repository is reloaded.
 export function WorkingDiff({ root, change, version, busy, onHunk, onDiscardHunk, onClose }) {

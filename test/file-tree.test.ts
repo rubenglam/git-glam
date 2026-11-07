@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildFileTree } from '../src/file-tree.ts'
+import { buildFileTree } from '../src/lib/file-tree.ts'
 
 const file = (path, added = 1, deleted = 0) => ({ path, added, deleted, binary: false })
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, Copy, File, Folder, FolderOpen, Maximize2, Minimize2, X } from 'lucide-react'
-import { buildFileTree } from './file-tree.ts'
+import { buildFileTree } from '../lib/file-tree.ts'
 import { DiffView } from './diff-view.tsx'
 import { FileIcon } from './file-icon.tsx'
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { GitBranch, Cloud, LoaderCircle, Tag } from 'lucide-react'
-import { graphSegments } from './graph-segments.ts'
-import { color, date } from './format.ts'
-import type { GraphRow } from './types.ts'
+import { graphSegments } from '../lib/graph-segments.ts'
+import { color, date } from '../lib/format.ts'
+import type { GraphRow } from '../types.ts'
 
 function Graph({ row, head, rowHeight, palette }) {
   const x = i => 17 + i * 18

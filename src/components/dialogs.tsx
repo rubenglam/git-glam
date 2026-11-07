@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import type { FormChoice, FormField, MenuItem } from './types.ts'
+import type { FormChoice, FormField, MenuItem } from '../types.ts'
 
 function useEscape(busy: boolean, onCancel: () => void) {
   useEffect(() => {

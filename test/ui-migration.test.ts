@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyElectronUi } from '../src/tauri-bridge.ts'
+import { applyElectronUi } from '../src/bridge/tauri-bridge.ts'
 
 test('imports absent and default UI preferences without replacing custom values', () => {
   const values = new Map([['gitgraph.hiddenTabs', '[]'], ['gitgraph.leftWidth', '410']])

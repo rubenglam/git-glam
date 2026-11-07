@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { GitBranch, Cloud, ChevronDown, ChevronRight } from 'lucide-react'
-import { graphSegments } from './graph-segments.ts'
+import { graphSegments } from '../lib/graph-segments.ts'
 
 interface PreviewRow {
   col: number

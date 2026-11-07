@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowUp, Bot, Check, ChevronDown, ChevronRight, LoaderCircle, MessageSquare, Plus, Search, ShieldAlert, ShieldCheck, Square, Wrench, X } from 'lucide-react'
-import { MODELS } from './ai-models.ts'
+import { MODELS } from '../lib/ai-models.ts'
 
 const MODES = [['read', 'Solo lectura', 'El agente solo puede leer archivos', ShieldCheck], ['edit', 'Acceso total', 'El agente puede modificar archivos', ShieldAlert]]
 const EFFORTS = [['low', 'Bajo'], ['medium', 'Medio'], ['high', 'Alto'], ['xhigh', 'Muy alto'], ['max', 'Máximo']]

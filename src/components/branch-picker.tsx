@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { performCommit } from './repo-flow.ts'
+import { performCommit } from '../lib/repo-flow.ts'
 import { ArrowUp, Check, GitBranch, LoaderCircle, Plus, RefreshCw, Sparkles, Square } from 'lucide-react'
 
 export function BranchPicker({ dir, onClose, onDone, onManage }) {

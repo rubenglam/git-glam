@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { graphSegments } from '../src/graph-segments.ts'
+import { graphSegments } from '../src/lib/graph-segments.ts'
 
 test('a new merge lane starts at the commit without an isolated vertical segment', () => {
   const segments = graphSegments({ col: 0, hasIncoming: true, before: ['merge'], after: ['first', 'second'], joins: [], forks: [1] })

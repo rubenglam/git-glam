@@ -1,4 +1,4 @@
-import type { Commit, GraphRow } from './types.ts'
+import type { Commit, GraphRow } from '../types.ts'
 
 // Keep Git's order whenever possible, but emit every loaded child before its
 // parents. Individually requested ancestors can arrive in any order.

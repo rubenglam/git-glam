@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LoaderCircle, Plus, Search, Star, X } from 'lucide-react'
-import { moveProjectTab } from './project-order.ts'
+import { moveProjectTab } from '../lib/project-order.ts'
 import { ProjectIcon, PROJECT_COLORS, projectName, colorClasses } from './project-icons.tsx'
-import { useStoredState } from './use-stored-state.ts'
+import { useStoredState } from '../hooks/use-stored-state.ts'
 
 const TAB_COLORS = PROJECT_COLORS
 

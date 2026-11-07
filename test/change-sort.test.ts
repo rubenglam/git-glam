@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sortChanges, statusLetter } from '../src/change-sort.ts'
+import { sortChanges, statusLetter } from '../src/lib/change-sort.ts'
 
 const changes = [{ status: ' M', path: 'src/b.js' }, { status: '??', path: 'a/z.js' }, { status: ' D', path: 'src/a.js' }, { status: 'M ', path: 'lib/c.js' }]
 

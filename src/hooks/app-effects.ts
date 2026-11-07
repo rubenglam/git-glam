@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { errorMessage, fetchAndReload, type LatestState } from './repo-flow.ts'
+import { errorMessage, fetchAndReload, type LatestState } from '../lib/repo-flow.ts'
 
 interface BackgroundRefreshOptions {
   state: LatestState

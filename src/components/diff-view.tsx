@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
-import { parseDiff } from './diff-parse.ts'
-import type { DiffState, HunkAction, ParsedDiffFile } from './types.ts'
+import { parseDiff } from '../lib/diff-parse.ts'
+import type { DiffState, HunkAction, ParsedDiffFile } from '../types.ts'
 
 const splitPath = (path: string) => { const index = path.lastIndexOf('/'); return index < 0 ? ['', path] : [path.slice(0, index + 1), path.slice(index + 1)] }
 

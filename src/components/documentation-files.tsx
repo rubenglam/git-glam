@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, FileText, Folder, Search } from 'lucide-react'
-import { buildFileTree } from './file-tree.ts'
+import { buildFileTree } from '../lib/file-tree.ts'
 
 type Result = { files: { path: string }[], truncated: boolean }
 type DocNode = { type: 'dir', label: string, children: DocNode[] } | { type: 'file', path: string, name: string }

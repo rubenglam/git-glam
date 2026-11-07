@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, Folder, FolderOpen, ListTree, Minus, Plus, Sparkles, Undo2 } from 'lucide-react'
 import { FileIcon } from './file-icon.tsx'
-import { buildFileTree } from './file-tree.ts'
-import { sortChanges, statusLetter } from './change-sort.ts'
-import type { FileChange } from './types.ts'
+import { buildFileTree } from '../lib/file-tree.ts'
+import { sortChanges, statusLetter } from '../lib/change-sort.ts'
+import type { FileChange } from '../types.ts'
 
 export const isStaged = (change: FileChange) => change.status[0] !== ' ' && change.status[0] !== '?'
 export const isUnstaged = (change: FileChange) => change.status[1] !== ' ' || change.status === '??'

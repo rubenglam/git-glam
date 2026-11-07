@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { refreshCachedProject, runSync } from '../src/repo-flow.ts'
+import { refreshCachedProject, runSync } from '../src/lib/repo-flow.ts'
 
 function api(info: any, fail: Partial<Record<'fetch' | 'pull' | 'push', string>> = {}) {
   const calls: string[] = []

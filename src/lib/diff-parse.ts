@@ -1,6 +1,6 @@
 // Parses the patch part of `git show --patch` into files with numbered lines. Text before the first
 // "diff --git" (the --stat summary) is dropped because the file tree already shows it.
-import type { ParsedDiffFile } from './types.ts'
+import type { ParsedDiffFile } from '../types.ts'
 
 export function parseDiff(text: string): ParsedDiffFile[] {
   return text.split(/^(?=diff --git )/m).filter(section => section.startsWith('diff --git ')).map(section => {

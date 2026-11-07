@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseDiff } from '../src/diff-parse.ts'
+import { parseDiff } from '../src/lib/diff-parse.ts'
 
 const patch = [
   ' a.ts | 2 +-', ' 1 file changed', '',

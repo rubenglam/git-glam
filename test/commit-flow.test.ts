@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyChange, performCommit, updatedSelection } from '../src/repo-flow.ts'
+import { applyChange, performCommit, updatedSelection } from '../src/lib/repo-flow.ts'
 
 // In-memory stand-in for window.gitGraph with just enough git semantics for the stage → commit → history flow.
 function fakeGit(options: { pushFails?: boolean, stageFails?: boolean } = {}) {
