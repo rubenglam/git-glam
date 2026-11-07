@@ -3,10 +3,11 @@ mod agent;
 mod branches;
 mod commit;
 mod commit_message;
+mod conflicts;
 mod data_store;
 mod diff;
-mod file_history;
 mod file_browser;
+mod file_history;
 mod forge;
 mod history;
 mod migration;
@@ -57,6 +58,10 @@ pub fn run() {
             tags::push_tag,
             commit::commit,
             actions::commit_action,
+            conflicts::conflict_state,
+            conflicts::conflict_read,
+            conflicts::conflict_save,
+            conflicts::conflict_action,
             settings::read_settings,
             settings::set_setting,
             projects::projects_list,

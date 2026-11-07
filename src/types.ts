@@ -147,6 +147,10 @@ export interface GitGraphApi {
   previewFile(path: string, file: string): Promise<string>
   fileHistory(path: string, file: string, rev?: string): Promise<any>
   fileBlame(path: string, file: string, rev?: string): Promise<any>
+  conflictState(path: string): Promise<{ operation: string | null, files: string[] }>
+  conflictRead(path: string, file: string): Promise<string>
+  conflictSave(path: string, file: string, original: string, content: string): Promise<void>
+  conflictAction(path: string, operation: string, action: string): Promise<void>
   commitAction(path: string, request: any): Promise<any>
   branches(path: string): Promise<any>
   switchBranch(path: string, ref: string): Promise<any>
@@ -272,3 +276,4 @@ export interface FileChange {
   status: string
   path: string
 }
+

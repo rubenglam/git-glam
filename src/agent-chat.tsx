@@ -81,7 +81,7 @@ function ModelPicker({ model, effort, onModel, onEffort, disabled }) {
   const current = MODELS.find(item => item[0] === model) || MODELS[0]
   return <span className="agent-picker"><button type="button" className="agent-pick" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => { setQuery(''); setOpen(!open) }}>{current[1]} <span className="agent-effort">{EFFORTS.find(item => item[0] === effort)![1]}</span><ChevronDown size={13}/></button>
     {open && <div className="agent-picker-pop" role="dialog" aria-label="Modelo y esfuerzo">
-      <label className="agent-picker-search"><Search size={16}/><input value={query} autoFocus placeholder="Buscar modelos…" onChange={event => setQuery(event.target.value)}/></label>
+      <label className="agent-picker-search"><Search size={16}/><input aria-label="Buscar modelos" value={query} autoFocus placeholder="Buscar modelos…" onChange={event => setQuery(event.target.value)}/></label>
       <ul role="listbox" aria-label="Modelos">{items.map(item => <li key={item[0]}><button type="button" role="option" aria-selected={item[0] === current[0]} onClick={() => { onModel(item[0]); setOpen(false) }}><span><b>{item[1]}</b><small>{item[2]}</small></span>{item[0] === current[0] && <Check size={16}/>}</button></li>)}{!items.length && <li className="agent-picker-empty">Sin resultados</li>}</ul>
       <div className="agent-picker-foot"><span>Esfuerzo</span>{EFFORTS.map(item => <button type="button" key={item[0]} className={item[0] === effort ? 'active' : ''} aria-pressed={item[0] === effort} onClick={() => onEffort(item[0])}>{item[1]}</button>)}</div>
     </div>}</span>
@@ -164,10 +164,10 @@ export function AgentDialog({ root, onClose, fileReview = null, documentationPat
     if (!ready || !documentationPath || documentationStarted.current) return
     documentationStarted.current = true
     if (tabsRef.current.length >= MAX_TABS) {
-      patch(active.id, { draft: `Sobre la documentaci�n ${JSON.stringify(documentationPath)}: ` })
+      patch(active.id, { draft: `Sobre la documentación ${JSON.stringify(documentationPath)}: ` })
       return
     }
-    const tab = newTab({ title: 'Documentaci�n: ' + documentationPath.split('/').pop(), mode: 'read', model: active.model, effort: active.effort, draft: `Sobre la documentaci�n ${JSON.stringify(documentationPath)}: ` })
+    const tab = newTab({ title: 'Documentación: ' + documentationPath.split('/').pop(), mode: 'read', model: active.model, effort: active.effort, draft: `Sobre la documentación ${JSON.stringify(documentationPath)}: ` })
     setTabs(old => [...old, tab]); setActiveId(tab.id)
   }, [ready, documentationPath])
   const reviewStarted = useRef(false)
@@ -221,9 +221,9 @@ export function AgentDialog({ root, onClose, fileReview = null, documentationPat
     </header>
     <div className="project-tabs agent-tabs" role="tablist" aria-label="Conversaciones">
       <div className="project-tabs-list">
-        {tabs.map(tab => <button key={tab.id} role="tab" aria-selected={tab.id === active.id} className={'projects-tab' + (tab.id === active.id ? ' active' : '')} title={tab.title} onClick={() => setActiveId(tab.id)} onAuxClick={event => { if (event.button === 1) { event.preventDefault(); closeTab(tab.id) } }}>
+        {tabs.map(tab => <button key={tab.id} role="tab" aria-selected={tab.id === active.id} className={'projects-tab' + (tab.id === active.id ? ' active' : '')} title={tab.title + " (Supr para cerrar)"} onKeyDown={event => { if (event.key === "Delete") { event.preventDefault(); closeTab(tab.id) } }} onClick={() => setActiveId(tab.id)} onAuxClick={event => { if (event.button === 1) { event.preventDefault(); closeTab(tab.id) } }}>
           {isBusy(tab) ? <LoaderCircle size={14} className="spin"/> : <MessageSquare size={14}/>}<span>{tab.title}</span>
-          <span className="tab-close" role="button" aria-label={`Cerrar ${tab.title}`} title="Cerrar conversación" onClick={event => { event.stopPropagation(); closeTab(tab.id) }}><X size={12}/></span>
+          <span className="tab-close" aria-hidden="true" title="Cerrar conversación" onClick={event => { event.stopPropagation(); closeTab(tab.id) }}><X size={12}/></span>
         </button>)}
       </div>
       <button className="tool-button add-project-tab" title="Nueva conversación" aria-label="Nueva conversación" disabled={tabs.length >= MAX_TABS} onClick={addTab}><Plus size={16}/></button>
@@ -236,7 +236,7 @@ export function AgentDialog({ root, onClose, fileReview = null, documentationPat
       </div>
     </div>
     <form className="agent-composer" onSubmit={event => { event.preventDefault(); send(active.draft) }}>
-      <textarea key={active.id} value={active.draft} rows={2} autoFocus placeholder="Pregunta lo que quieras… (Mayús+Enter para salto de línea)" onChange={event => patch(active.id, { draft: event.target.value })} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(active.draft) } }}/>
+      <textarea aria-label="Mensaje al agente" key={active.id} value={active.draft} rows={2} autoFocus placeholder="Pregunta lo que quieras… (Mayús+Enter para salto de línea)" onChange={event => patch(active.id, { draft: event.target.value })} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(active.draft) } }}/>
       <div className="agent-bar">
         <Menu label="Permisos" icon={ModeIcon} value={active.mode} options={MODES} disabled={busy} className={active.mode === 'edit' ? 'warn' : ''} onChange={mode => patch(active.id, { mode })}/>
         <span className="agent-spacer"/>

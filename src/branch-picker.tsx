@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { performCommit } from './repo-flow.ts'
 import { ArrowUp, Check, GitBranch, LoaderCircle, Plus, RefreshCw, Sparkles, Square } from 'lucide-react'
 
 export function BranchPicker({ dir, onClose, onDone, onManage }) {
@@ -82,10 +83,11 @@ export function CommitBox({ showAICommit, dir, changes, publishedTo, disabled, s
   }
   async function commit(push = false) {
     setCommitting(true)
-    try { await window.gitGraph[push ? 'commitAndPush' : 'commit'](dir, message, { amend }); setMessage(''); setAmend(false); loaded.current = ''; await onCommitted(amend, push) } catch (e) {
+    try {
+      const outcome = await performCommit(window.gitGraph, dir, message, { amend, push })
       // The commit itself may have succeeded even though the push failed: refresh first (it clears errors), then report.
-      if (push && /commit se creó/.test(e.message || '')) { setMessage(''); setAmend(false); loaded.current = ''; await onCommitted(amend, false) }
-      onError(e.message || String(e))
+      if (outcome.committed) { setMessage(''); setAmend(false); loaded.current = ''; await onCommitted(amend, outcome.pushed) }
+      if (outcome.error) onError(outcome.error)
     } finally { setCommitting(false) }
   }
   const showSync = !amend && changes.length === 0 && sync && !sync.gone && (sync.ahead > 0 || sync.behind > 0)
@@ -94,11 +96,13 @@ export function CommitBox({ showAICommit, dir, changes, publishedTo, disabled, s
   return <div className="commit-box">
     <div className="commit-input-wrap">
       <textarea ref={textarea} rows={1} value={message} disabled={disabled || committing} aria-label="Mensaje de commit" placeholder={amend ? 'Mensaje del commit enmendado (vacío = conservar el actual)' : 'Mensaje (Ctrl+Enter para confirmar)'} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !blocked) { event.preventDefault(); commit() } }}/>
-      {(showAICommit || generating) && <button className={"commit-ai" + (generating ? " generating" : "")} title={generating ? "Detener generaci�n" : "Generar mensaje con IA"} aria-label={generating ? "Detener generaci�n" : "Generar mensaje de commit con IA"} disabled={!generating && (disabled || committing || changes.length === 0)} onClick={generating ? stopGeneration : generate}>{generating ? <Square size={9} fill="currentColor"/> : <Sparkles size={15}/>}</button>}
+      {(showAICommit || generating) && <button className={"commit-ai" + (generating ? " generating" : "")} title={generating ? "Detener generación" : "Generar mensaje con IA"} aria-label={generating ? "Detener generación" : "Generar mensaje de commit con IA"} disabled={!generating && (disabled || committing || changes.length === 0)} onClick={generating ? stopGeneration : generate}>{generating ? <Square size={9} fill="currentColor"/> : <Sparkles size={15}/>}</button>}
       <div className="commit-resize" aria-hidden="true" onPointerDown={event => { if (!textarea.current) return; drag.current = { y: event.clientY, height: textarea.current.offsetHeight }; event.currentTarget.setPointerCapture(event.pointerId); event.preventDefault() }} onPointerMove={event => { if (drag.current && textarea.current) { manualHeight.current = Math.max(36, drag.current.height + event.clientY - drag.current.y); textarea.current.style.height = `${manualHeight.current}px` } }} onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }} onLostPointerCapture={() => { drag.current = null }}/>
     </div>
     <label className="commit-amend"><input type="checkbox" checked={amend} disabled={disabled || working} onChange={event => toggleAmend(event.target.checked)}/> Enmendar el último commit</label>
+    {amend && <p className="sync-explanation">Se reemplazará el último commit; su identificador cambiará y se incorporarán los cambios preparados.</p>}
     {amend && publishedTo && <p className="commit-warn" role="note">Este commit ya está en {publishedTo}. Enmendarlo reescribe el historial y requerirá un push forzado.</p>}
+    {showSync && <p className="sync-explanation">Sincronizar actualizará todos los remotos y sus etiquetas, y eliminará las referencias remotas obsoletas. Después recibirá los commits de {sync.upstream} solo si es posible avanzar sin crear un merge y enviará los commits locales pendientes. Si las ramas han divergido, el pull fallará y no se hará push. Los recuentos pueden cambiar tras actualizar.</p>}
     {showSync ? <div className="commit-split">
       <button className="commit-button" disabled={disabled || syncing} title={`Sincronizar con ${sync.upstream}`} onClick={onSync}>{syncing ? <LoaderCircle className="spin" size={15}/> : <RefreshCw size={15}/>} Sincronizar cambios{sync.behind > 0 && ` ${sync.behind}↓`}{sync.ahead > 0 && ` ${sync.ahead}↑`}</button>
     </div> : <div className="commit-split">

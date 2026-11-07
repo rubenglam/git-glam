@@ -17,6 +17,10 @@ export function createGitGraphBridge(transport: { invoke: (channel: string, ...a
   previewFile: (path, file) => transport.invoke('repo:preview-file', path, file),
   fileHistory: (path, file, rev) => transport.invoke('repo:file-history', path, file, rev),
   fileBlame: (path, file, rev) => transport.invoke('repo:file-blame', path, file, rev),
+  conflictState: path => transport.invoke('repo:conflict-state', path),
+  conflictRead: (path, file) => transport.invoke('repo:conflict-read', path, file),
+  conflictSave: (path, file, original, content) => transport.invoke('repo:conflict-save', path, file, original, content),
+  conflictAction: (path, operation, action) => transport.invoke('repo:conflict-action', path, operation, action),
   commitAction: (path, request) => transport.invoke('repo:commit-action', path, request),
   branches: path => transport.invoke('repo:branches', path),
   switchBranch: (path, ref) => transport.invoke('repo:switch-branch', path, ref),
@@ -91,3 +95,4 @@ export function createGitGraphBridge(transport: { invoke: (channel: string, ...a
   },
   }
 }
+

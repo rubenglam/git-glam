@@ -26,7 +26,7 @@ export function FilterMenu({ label, value, options, onChange, searchable = false
   return <div className="filter-menu" ref={box}>
     <button type="button" className={'filter-button ' + (active ? 'active' : '')} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(!open)}>{label}{shown && (active || defaultValue) ? <b>{shown}</b> : null}<ChevronDown size={13}/></button>
     {open && <div className="filter-popover" role="listbox" aria-label={label}>
-      {(searchable || free) && <input className="filter-search" autoFocus value={text} placeholder={free ? `Buscar o escribir ${label.toLowerCase()}…` : `Buscar ${label.toLowerCase()}…`} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); if (typed) pick(text.trim()); else if (visible.length === 1) pick(visible[0].value) } }}/>}
+      {(searchable || free) && <input aria-label={`Buscar ${label.toLowerCase()}`} className="filter-search" autoFocus value={text} placeholder={free ? `Buscar o escribir ${label.toLowerCase()}…` : `Buscar ${label.toLowerCase()}…`} onChange={event => setText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); if (typed) pick(text.trim()); else if (visible.length === 1) pick(visible[0].value) } }}/>}
       <div className="filter-options">
         {value && value !== defaultValue && <button type="button" className="filter-clear" onClick={() => pick(defaultValue)}>{defaultValue ? 'Restablecer' : 'Quitar filtro'}</button>}
         {typed && <button type="button" onClick={() => pick(text.trim())}>Usar «{text.trim()}»</button>}

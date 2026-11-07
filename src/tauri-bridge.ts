@@ -52,6 +52,10 @@ const routes: Record<string, (args: any[]) => [string, Record<string, unknown>]>
   'app:open-issue': ([url]) => ['open_issue', { url }],
   'repo:load': ([dir, showRemote, limit]) => ['load_repo', { dir, showRemote, limit }],
   'repo:history': ([dir, showRemote, limit]) => ['history', { dir, showRemote, limit }],
+  'repo:conflict-state': ([dir]) => ['conflict_state', { dir }],
+  'repo:conflict-read': ([dir, file]) => ['conflict_read', { dir, file }],
+  'repo:conflict-save': ([dir, file, original, content]) => ['conflict_save', { dir, file, original, content }],
+  'repo:conflict-action': ([dir, operation, action]) => ['conflict_action', { dir, operation, action }],
   'repo:commit-action': ([dir, request]) => ['commit_action', { dir, request }],
   'repo:branches': ([dir]) => ['list_branches', { dir }],
   'repo:switch-branch': ([dir, reference]) => ['switch_branch', { dir, reference }],
@@ -127,3 +131,4 @@ export async function migrateElectronUi() {
     localStorage.setItem('gitgraph.electronUiImported', '1')
   } catch (error) { console.warn('No se pudo importar la disposición de Electron', error) }
 }
+
