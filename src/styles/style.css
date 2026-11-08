@@ -1066,3 +1066,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .update-toast-actions button svg{stroke:currentColor;color:inherit;flex:none}.update-toast-version{white-space:nowrap}
 .update-toast-notes{margin-top:10px;max-height:150px;overflow:auto;padding:8px 10px;border:1px solid var(--toast-border);border-radius:8px;background:var(--toast-version-bg);font-size:12px;line-height:1.45}.update-toast-notes:focus-visible{outline:2px solid var(--toast-accent);outline-offset:1px}.update-toast-notes section+section{margin-top:8px}.update-toast-notes h4{margin:0 0 3px;color:var(--toast-accent);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}.update-toast-notes ul{margin:0;padding-left:16px;color:var(--toast-fg)}.update-toast-notes li+li{margin-top:2px}
+
+.project-menu{position:fixed;z-index:60;min-width:190px;max-height:320px;overflow:auto;padding:5px;border:1px solid #c4c8cd;border-radius:9px;background:#f5f6f8;box-shadow:0 12px 32px #0003}
+.project-menu button{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;border:0;border-radius:6px;background:transparent;color:#3a3f44;font-size:12px;text-align:left}
+.project-menu button:hover:not(:disabled){background:#dfe2e6}.project-menu button:disabled{color:#2b2f33;cursor:default}
+.project-menu button.danger{color:#b3382c}.project-menu button.danger:hover{background:#f3dcd9}
+.project-menu-check{display:grid;place-items:center;width:14px;flex:none}
+.project-menu-label{padding:5px 8px 3px;color:#7b8189;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.project-menu-sep{height:1px;margin:5px 0;background:#d3d6da}
+.project-menu-button[aria-expanded=true]{background:#cacdd2}
