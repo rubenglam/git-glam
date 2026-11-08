@@ -1,5 +1,7 @@
 use serde::Serialize;
 use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
     io::{self, Read},
     path::Path,
     process::{Command, Stdio},
@@ -31,6 +33,27 @@ pub struct History {
     pub(crate) commits: Vec<Commit>,
     pub(crate) limit: usize,
     pub(crate) has_more: bool,
+    // Identifies the refs this page was read from; pages are only comparable when it matches.
+    pub(crate) fingerprint: String,
+    // True when the refs changed since `expected`, so the page was not read.
+    pub(crate) stale: bool,
+}
+
+fn fingerprint(dir: &Path, show_remote: bool, head: &str) -> Result<String, String> {
+    let mut args = vec![
+        "for-each-ref",
+        "--format=%(objectname) %(refname)",
+        "refs/heads",
+        "refs/tags",
+    ];
+    if show_remote {
+        args.push("refs/remotes");
+    }
+    let refs = git(dir, &args, Duration::from_secs(15), 64 * 1024 * 1024)?;
+    let mut hasher = DefaultHasher::new();
+    head.hash(&mut hasher);
+    refs.hash(&mut hasher);
+    Ok(format!("{:016x}", hasher.finish()))
 }
 
 // Drain both pipes concurrently so Git cannot deadlock on a full stderr buffer.
@@ -137,6 +160,20 @@ pub(crate) fn history_inner(
     show_remote: bool,
     requested_limit: Option<usize>,
 ) -> Result<History, String> {
+    history_page(dir, show_remote, requested_limit, 0, None)
+}
+
+// Reads `limit` commits after skipping `skip`, so later pages do not re-read earlier ones.
+// With `expected`, the page is only read while the refs still match that fingerprint.
+pub(crate) fn history_page(
+    dir: &Path,
+    show_remote: bool,
+    requested_limit: Option<usize>,
+    skip: usize,
+    expected: Option<&str>,
+) -> Result<History, String> {
+    let skip = skip.min(MAX_COMMITS);
+    let skip_arg = skip.to_string();
     let limit = requested_limit
         .filter(|&n| n > 0)
         .unwrap_or(PAGE_SIZE)
@@ -169,6 +206,8 @@ pub(crate) fn history_inner(
                     commits: vec![],
                     limit,
                     has_more: false,
+                    fingerprint: String::new(),
+                    stale: false,
                 });
             }
             return Err(error);
@@ -183,11 +222,33 @@ pub(crate) fn history_inner(
         "--tags",
         "HEAD",
         "--topo-order",
+        "--skip",
+        skip_arg.as_str(),
         "-n",
         count.as_str(),
         LOG_FORMAT,
     ]);
-    let log = git(dir, &args, Duration::from_secs(120), MAX_OUTPUT)?;
+    // The fingerprint runs alongside the log so its cost is hidden behind Git's own work.
+    let (before, log) = thread::scope(|scope| {
+        let before = scope.spawn(|| fingerprint(dir, show_remote, &head));
+        let log = git(dir, &args, Duration::from_secs(120), MAX_OUTPUT);
+        let before = before
+            .join()
+            .unwrap_or_else(|_| Err("Error leyendo las referencias".to_string()));
+        (before, log)
+    });
+    let before = before?;
+    let log = log?;
+    if expected.is_some_and(|expected| expected != before) {
+        return Ok(History {
+            head,
+            commits: vec![],
+            limit,
+            has_more: true,
+            fingerprint: before,
+            stale: true,
+        });
+    }
     let mut commits: Vec<_> = log
         .split('\x1e')
         .map(str::trim_start)
@@ -229,13 +290,20 @@ pub(crate) fn history_inner(
             }
         })
         .collect();
+    // Refs moved while Git was reading: a continuation page could skip or repeat commits.
+    let stale = expected.is_some() && fingerprint(dir, show_remote, &head)? != before;
     let has_more = commits.len() > limit;
     commits.truncate(limit);
+    if stale {
+        commits.clear();
+    }
     Ok(History {
         head,
         commits,
         limit,
-        has_more,
+        has_more: has_more || stale,
+        fingerprint: before,
+        stale,
     })
 }
 
@@ -244,9 +312,17 @@ pub async fn history(
     dir: String,
     show_remote: Option<bool>,
     limit: Option<usize>,
+    skip: Option<usize>,
+    fingerprint: Option<String>,
 ) -> Result<History, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        history_inner(Path::new(&dir), show_remote.unwrap_or(true), limit)
+        history_page(
+            Path::new(&dir),
+            show_remote.unwrap_or(true),
+            limit,
+            skip.unwrap_or(0),
+            fingerprint.as_deref(),
+        )
     })
     .await
     .map_err(|e| format!("No se pudo leer el historial: {e}"))?
@@ -290,6 +366,37 @@ mod tests {
         let all = history_inner(dir, true, Some(5)).unwrap();
         assert_eq!(all.commits.len(), 2);
         assert!(!all.has_more);
+        let first = history_page(dir, false, Some(1), 0, None).unwrap();
+        assert!(!first.fingerprint.is_empty() && !first.stale);
+        let second = history_page(dir, false, Some(1), 1, Some(&first.fingerprint)).unwrap();
+        assert_eq!(second.commits.len(), 1);
+        assert_eq!(second.commits[0].subject, "commit 1");
+        assert!(!second.has_more);
+        assert!(
+            history_page(dir, false, Some(1), 2, None)
+                .unwrap()
+                .commits
+                .is_empty()
+        );
+    }
+    #[test]
+    fn continuation_is_stale_after_refs_change() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        run(dir, &["init", "-q"]);
+        run(dir, &["config", "user.name", "Git Glam Test"]);
+        run(dir, &["config", "user.email", "test@example.com"]);
+        for n in 1..=2 {
+            fs::write(dir.join("file.txt"), n.to_string()).unwrap();
+            run(dir, &["add", "file.txt"]);
+            run(dir, &["commit", "-q", "-m", &format!("commit {n}")]);
+        }
+        let first = history_page(dir, false, Some(1), 0, None).unwrap();
+        run(dir, &["tag", "moved"]);
+        let next = history_page(dir, false, Some(1), 1, Some(&first.fingerprint)).unwrap();
+        assert!(next.stale && next.commits.is_empty() && next.has_more);
+        let again = history_page(dir, false, Some(1), 1, Some(&next.fingerprint)).unwrap();
+        assert!(!again.stale && again.commits.len() == 1);
     }
     #[test]
     fn rejects_non_repository() {

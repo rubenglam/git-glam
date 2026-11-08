@@ -41,8 +41,35 @@ export function orderHistory<T extends Pick<Commit, 'hash' | 'parents'>>(commits
 // reutiliza un carril (forks). Los carriles no se desplazan: las verticales
 // son rectas y solo confluencias y ramas llevan curva.
 export function layout<T extends Pick<Commit, 'hash' | 'parents'>>(commits: T[]): GraphRow<T>[] {
+  const rows: GraphRow<T>[] = []
+  layoutInto([], commits, rows)
+  return rows
+}
+
+export interface LayoutState<T> {
+  source: T[]
+  lanes: (string | null)[]
+  rows: GraphRow<T>[]
+}
+
+// Lays out `commits`, reusing the previous result when it is a prefix of them
+// (same objects, as when a page is appended): only the new commits are processed.
+export function extendLayout<T extends Pick<Commit, 'hash' | 'parents'>>(prev: LayoutState<T> | null, commits: T[]): LayoutState<T> {
+  const n = prev?.source.length ?? 0
+  if (prev && n > 0 && n <= commits.length && prev.source[0] === commits[0] && prev.source[n - 1] === commits[n - 1]) {
+    if (n === commits.length) return prev
+    const lanes = prev.lanes.slice()
+    const added: GraphRow<T>[] = []
+    layoutInto(lanes, orderHistory(commits.slice(n)), added)
+    return { source: commits, lanes, rows: prev.rows.concat(added) }
+  }
   const lanes: (string | null)[] = []
   const rows: GraphRow<T>[] = []
+  layoutInto(lanes, orderHistory(commits), rows)
+  return { source: commits, lanes, rows }
+}
+
+function layoutInto<T extends Pick<Commit, 'hash' | 'parents'>>(lanes: (string | null)[], commits: T[], rows: GraphRow<T>[]): void {
   const freeSlot = () => {
     const i = lanes.indexOf(null)
     if (i >= 0) return i
@@ -77,6 +104,5 @@ export function layout<T extends Pick<Commit, 'hash' | 'parents'>>(commits: T[])
     while (lanes.length > 0 && lanes[lanes.length - 1] === null) lanes.pop()
     rows.push({ commit, col, hasIncoming, before, after, joins, forks })
   }
-  return rows
 }
 

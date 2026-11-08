@@ -144,7 +144,7 @@ export interface GitGraphApi {
   openFolder(path: string): Promise<void>
   open(): Promise<any>
   load(path: string, showRemote?: boolean, limit?: number): Promise<any>
-  history(path: string, showRemote?: boolean, limit?: number): Promise<any>
+  history(path: string, showRemote?: boolean, limit?: number, skip?: number, fingerprint?: string): Promise<any>
   diff(path: string, hash: string): Promise<string>
   commitFiles(path: string, hash: string): Promise<any>
   browseFiles(path: string, folder: string): Promise<{ name: string, path: string, directory: boolean }[]>

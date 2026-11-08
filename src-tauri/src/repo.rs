@@ -103,7 +103,7 @@ pub(crate) fn load_inner(
     }).collect();
     Ok(
         json!({"root": root, "branch": if branch.trim().is_empty() {"HEAD separado"} else {branch.trim()}, "head": history.head,
-        "changes": changes, "commits": history.commits, "limit": history.limit, "hasMore": history.has_more,
+        "changes": changes, "commits": history.commits, "limit": history.limit, "hasMore": history.has_more, "fingerprint": history.fingerprint,
         "stashes": stashes, "remotes": remote.lines().filter(|s| !s.is_empty()).collect::<Vec<_>>(), "branches": branches, "sync": sync, "worktrees": worktrees}),
     )
 }

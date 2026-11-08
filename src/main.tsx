@@ -7,7 +7,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BookOpen, Bot, BotMessageSquare, Lightbulb, CircleAlert, CircleCheck, CircleDot, ChevronsDownUp, ChevronsUpDown, File, FolderOpen, Github, GitBranch, GitMerge, LoaderCircle, PanelLeft, PanelRight, RefreshCw, Search, Settings, SquareTerminal, X } from 'lucide-react'
-import { layout, orderHistory } from './lib/graph-layout.ts'
+import { extendLayout, type LayoutState } from './lib/graph-layout.ts'
 import type { DiffState, GraphRow } from './types.ts'
 import { graphSegments } from './lib/graph-segments.ts'
 import { useBackgroundRefresh, useReloadShortcut, useSearchShortcuts } from './hooks/app-effects.ts'
@@ -116,7 +116,11 @@ function App() {
     return () => clearInterval(timer)
   }, [repoRoot])
   const isRemote = name => (repo?.remotes || []).some(remote => name.replace(/^HEAD -> /, '').startsWith(remote + '/'))
-  const rows = useMemo(() => repo ? layout(orderHistory(repo.commits)) : [], [repo])
+  const layoutState = useRef<LayoutState<any> | null>(null)
+  const rows = useMemo(() => {
+    if (!repo) { layoutState.current = null; return [] }
+    return (layoutState.current = extendLayout(layoutState.current, repo.commits)).rows
+  }, [repo?.commits])
   const graphAutoWidth = useMemo(() => rows.reduce((width, row) => Math.max(width, 35 + 18 * Math.max(row.col, row.before.length - 1, row.after.length - 1)), 55), [rows])
   const widths = { graph: 0, date: 125, author: 100, hash: 75, ...columnWidths }
   const graphWidth = Number.isFinite(widths.graph) && widths.graph >= 40 ? widths.graph : graphAutoWidth
@@ -228,11 +232,22 @@ function App() {
     loadMoreRef.current = true; setLoadingMore(true)
     const { root } = repo, request = projectRequest.current
     try {
-      const page = await window.gitGraph.history(root, showRemote, repo.commits.length + HISTORY_PAGE)
+      const skipped = repo.commits.length
+      const page = await window.gitGraph.history(root, showRemote, HISTORY_PAGE, skipped, repo.fingerprint)
       if (request !== projectRequest.current) return
+      if (page.stale) {
+        // Refs moved since the loaded pages: reload what is shown instead of appending a shifted page.
+        const data = await window.gitGraph.load(root, showRemote, skipped + HISTORY_PAGE)
+        if (request !== projectRequest.current) return
+        if (activeProject) projectCache.current.set(activeProject, { repo: data, showRemote })
+        setRepo(data); setSelected(old => updatedSelection(data, old))
+        return
+      }
       setRepo(old => {
-        if (!old || old.root !== root) return old
-        const next = { ...old, commits: page.commits, limit: page.limit, hasMore: page.hasMore }
+        // A refresh may have replaced the loaded commits while this page was in flight.
+        if (!old || old.root !== root || old.commits.length !== skipped || old.fingerprint !== repo.fingerprint) return old
+        const known = new Set<string>(old.commits.map(c => c.hash)), commits = [...old.commits, ...page.commits.filter(c => !known.has(c.hash))]
+        const next = { ...old, commits, limit: commits.length, hasMore: page.hasMore }
         if (activeProject) projectCache.current.set(activeProject, { repo: next, showRemote })
         return next
       })
