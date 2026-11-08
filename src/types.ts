@@ -129,9 +129,16 @@ export interface RenderOptions {
   unborn?: boolean
 }
 
+/** Dev-only snapshot of what a new release would contain. */
+export interface ReleaseInfo { version: string; lastTag: string | null; commits: string[]; dirty: boolean; branch: string; running: boolean }
+
 /** API exposed to React by the Tauri bridge; IPC results are untyped JSON. */
 export interface GitGraphApi {
   isPackaged(): Promise<boolean>
+  releaseInfo(): Promise<ReleaseInfo>
+  releaseRun(version: string): Promise<void>
+  onReleaseLog(callback: (line: string) => void): () => void
+  onReleaseDone(callback: (result: { ok: boolean; error?: string }) => void): () => void
   onRestored(callback: () => void): () => void
   fileAction(path: string, file: string, action: string): Promise<void>
   openFolder(path: string): Promise<void>

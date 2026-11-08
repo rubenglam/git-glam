@@ -13,6 +13,7 @@ mod history;
 mod migration;
 mod open_ops;
 mod projects;
+mod release;
 mod repo;
 mod settings;
 mod staging;
@@ -77,6 +78,8 @@ pub fn run() {
             data_store::data_save,
             projects::project_status,
             is_packaged,
+            release::release_info,
+            release::release_run,
             diff::commit_diff,
             diff::commit_files,
             file_browser::browse_files,

@@ -3,6 +3,10 @@ export function createGitGraphBridge(transport: { invoke: (channel: string, ...a
   return {
   isPackaged: () => transport.invoke('app:is-packaged'),
   onRestored: callback => { const listener = () => callback(); transport.on('app:restored', listener); return () => transport.removeListener('app:restored', listener) },
+  releaseInfo: () => transport.invoke('release:info'),
+  releaseRun: version => transport.invoke('release:run', version),
+  onReleaseLog: callback => { const listener = (_event, line) => callback(line); transport.on('release:log', listener); return () => transport.removeListener('release:log', listener) },
+  onReleaseDone: callback => { const listener = (_event, result) => callback(result); transport.on('release:done', listener); return () => transport.removeListener('release:done', listener) },
   open: () => transport.invoke('repo:open'),
   fileAction: (path, file, action) => transport.invoke('repo:file-action', path, file, action),
   openFolder: path => transport.invoke('repo:open-folder', path),
