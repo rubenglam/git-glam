@@ -11,6 +11,7 @@ export function ReleaseDialog({ onClose }: { onClose: () => void }) {
   const [info, setInfo] = useState<ReleaseInfo | null>(null)
   const [choice, setChoice] = useState('')
   const [custom, setCustom] = useState('')
+  const [skipBump, setSkipBump] = useState(false)
   const [log, setLog] = useState<string[]>([])
   const [error, setError] = useState('')
   const logRef = useRef<HTMLPreElement>(null)
@@ -34,14 +35,14 @@ export function ReleaseDialog({ onClose }: { onClose: () => void }) {
   }, [step, onClose])
 
   const options = useMemo(() => info ? versionOptions(info.version, info.commits) : [], [info])
-  const version = choice === 'custom' ? custom.trim() : choice
-  const customProblem = choice !== 'custom' || !info ? '' : !isVersion(version) ? 'Usa el formato x.y.z' : compareVersions(version, info.version) <= 0 ? `Debe ser mayor que ${info.version}` : ''
+  const version = skipBump && info ? info.version : choice === 'custom' ? custom.trim() : choice
+  const customProblem = skipBump || choice !== 'custom' || !info ? '' : !isVersion(version) ? 'Usa el formato x.y.z' : compareVersions(version, info.version) <= 0 ? `Debe ser mayor que ${info.version}` : ''
   const canStart = step === 'choose' && !!info && !!version && !customProblem
 
   async function start() {
     if (!canStart) return
     setError(''); setLog([]); setStep('running')
-    try { await window.gitGraph.releaseRun(version) } catch (e) { setError(e.message || String(e)); setStep('choose') }
+    try { await window.gitGraph.releaseRun(version, skipBump) } catch (e) { setError(e.message || String(e)); setStep('choose') }
   }
 
   const running = step === 'running'
@@ -52,7 +53,8 @@ export function ReleaseDialog({ onClose }: { onClose: () => void }) {
       {info && step !== 'loading' && <>
         <p>Versión actual <strong>{info.version}</strong>{info.lastTag ? <> · {info.commits.length} commit{info.commits.length === 1 ? '' : 's'} desde <code>{info.lastTag}</code></> : ''} · rama <code>{info.branch}</code></p>
         {info.dirty && step === 'choose' && <div className="release-warning" role="alert"><TriangleAlert size={14} aria-hidden="true"/> Hay cambios sin confirmar. El instalador se construirá con ellos.</div>}
-        {step === 'choose' && <div className="release-options" role="radiogroup" aria-label="Número de versión">
+        {step === 'choose' && <label className="release-skip"><input type="checkbox" checked={skipBump} onChange={event => setSkipBump(event.target.checked)}/><span><strong>Mantener la versión actual ({info.version})</strong><small>No modifica package.json, Cargo.toml ni tauri.conf.json: compila y publica directamente.</small></span></label>}
+        {step === 'choose' && !skipBump && <div className="release-options" role="radiogroup" aria-label="Número de versión">
           {options.map(option => <label key={option.bump} className={'release-option' + (choice === option.version ? ' selected' : '')}>
             <input type="radio" name="release-version" checked={choice === option.version} onChange={() => setChoice(option.version)}/>
             <span className="release-option-version">{option.version}</span>
@@ -66,7 +68,7 @@ export function ReleaseDialog({ onClose }: { onClose: () => void }) {
           </label>
           {customProblem && custom && <small className="release-problem">{customProblem}</small>}
         </div>}
-        {step === 'choose' && info.commits.length > 0 && <details className="release-commits"><summary>Cambios incluidos</summary><ul>{info.commits.slice(0, 40).map((commit, i) => <li key={i}>{commit}</li>)}</ul></details>}
+        {step === 'choose' && !skipBump && info.commits.length > 0 && <details className="release-commits"><summary>Cambios incluidos</summary><ul>{info.commits.slice(0, 40).map((commit, i) => <li key={i}>{commit}</li>)}</ul></details>}
         {(running || step === 'done') && <>
           <p aria-live="polite">{running ? <>Publicando <strong>v{version || info.version}</strong>… no cierres la app.</> : error ? 'La publicación ha fallado.' : <>Versión publicada correctamente.</>}</p>
           <pre className="release-log" ref={logRef} aria-label="Salida del proceso">{log.join('\n') || 'Esperando salida…'}</pre>

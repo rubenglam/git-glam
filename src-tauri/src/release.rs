@@ -62,9 +62,9 @@ pub async fn release_info() -> Result<Value, String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Starts `pnpm release <version> --publish` and streams its output as `release:log` / `release:done`.
+/// Starts `pnpm release <version> --publish` (plus `--skip-bump` to keep the version files as they are) and streams its output as `release:log` / `release:done`.
 #[tauri::command]
-pub fn release_run(app: tauri::AppHandle, version: String) -> Result<(), String> {
+pub fn release_run(app: tauri::AppHandle, version: String, skip_bump: Option<bool>) -> Result<(), String> {
     let root = root()?;
     if !valid_version(&version) {
         return Err("La versión debe tener el formato x.y.z".into());
@@ -73,8 +73,11 @@ pub fn release_run(app: tauri::AppHandle, version: String) -> Result<(), String>
         return Err("Ya hay una publicación en curso".into());
     }
     let mut command = Command::new("cmd");
+    command.args(["/C", "pnpm", "release", &version, "--publish"]);
+    if skip_bump.unwrap_or(false) {
+        command.arg("--skip-bump");
+    }
     command
-        .args(["/C", "pnpm", "release", &version, "--publish"])
         .current_dir(&root)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())

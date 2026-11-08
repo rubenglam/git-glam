@@ -1,6 +1,7 @@
-// Usage: pnpm release <version> [--notes "texto"] [--publish]
+// Usage: pnpm release <version> [--notes "texto"] [--publish] [--skip-bump]
 // Bumps the version, builds the signed NSIS installer and writes latest.json.
 // Release notes are generated from commits since the last version tag unless --notes is supplied.
+// With --skip-bump the version files are left untouched (they must already contain <version>).
 // With --publish it also creates the GitHub release (requires `gh` logged in).
 import { execFileSync, execSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -15,7 +16,8 @@ const flag = (name: string) => args.indexOf(name)
 const notesIndex = flag('--notes')
 const explicitNotes = notesIndex >= 0 ? args[notesIndex + 1] : undefined
 const publish = args.includes('--publish')
-if (!version || (notesIndex >= 0 && explicitNotes === undefined)) { console.error('Uso: pnpm release <x.y.z> [--notes "texto"] [--publish]'); process.exit(1) }
+const skipBump = args.includes('--skip-bump')
+if (!version || (notesIndex >= 0 && explicitNotes === undefined)) { console.error('Uso: pnpm release <x.y.z> [--notes "texto"] [--publish] [--skip-bump]'); process.exit(1) }
 
 const run = (cmd: string, env: NodeJS.ProcessEnv = {}) => execSync(cmd, { cwd: root, stdio: 'inherit', env: { ...process.env, ...env } })
 const git = (...gitArgs: string[]) => execFileSync('git', gitArgs, { cwd: root, encoding: 'utf8' }).trim()
@@ -42,9 +44,14 @@ const edit = (file: string, pattern: RegExp, replacement: string) => {
   writeFileSync(path, text.replace(pattern, replacement))
 }
 
-edit('package.json', /("version":\s*")[^"]+(")/, `$1${version}$2`)
-edit('src-tauri/tauri.conf.json', /("version":\s*")[^"]+(")/, `$1${version}$2`)
-edit('src-tauri/Cargo.toml', /^(version\s*=\s*")[^"]+(")/m, `$1${version}$2`)
+if (skipBump) {
+  const current = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
+  if (current !== version) throw new Error(`--skip-bump: package.json está en ${current}, no en ${version}`)
+} else {
+  edit('package.json', /("version":\s*")[^"]+(")/, `$1${version}$2`)
+  edit('src-tauri/tauri.conf.json', /("version":\s*")[^"]+(")/, `$1${version}$2`)
+  edit('src-tauri/Cargo.toml', /^(version\s*=\s*")[^"]+(")/m, `$1${version}$2`)
+}
 
 // `tauri build` only reads TAURI_SIGNING_PRIVATE_KEY (the key content), not a path.
 const keyPath = process.env.TAURI_SIGNING_PRIVATE_KEY_PATH ?? join(homedir(), '.tauri', 'git-glam.key')

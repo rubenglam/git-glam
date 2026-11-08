@@ -3,6 +3,7 @@ import { ArrowDownToLine, RefreshCw, Sparkles } from 'lucide-react'
 import { isTauri } from '@tauri-apps/api/core'
 import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
+import { parseReleaseNotes } from '../lib/release-notes.ts'
 
 type Phase = 'idle' | 'checking' | 'none' | 'available' | 'downloading' | 'ready' | 'error'
 interface State { phase: Phase; update: Update | null; progress: number | null; error: string }
@@ -69,6 +70,7 @@ export function UpdateNotice({ onOpen }: { onOpen: () => void }) {
 export function UpdateToast() {
   const { phase, update, progress, error } = useUpdater()
   const [dismissed, setDismissed] = useState<string | null>(null)
+  const notes = parseReleaseNotes(update?.body)
   const visible = update && dismissed !== update.version && (phase === 'available' || phase === 'downloading' || phase === 'ready' || (phase === 'error' && !!error))
   if (!visible) return null
   return <div className="update-toast" role="status" aria-live="polite">
@@ -76,9 +78,15 @@ export function UpdateToast() {
     <div className="update-toast-content">
       <div className="update-toast-heading">
         <strong>{phase === 'error' ? 'No se pudo actualizar' : phase === 'ready' ? 'Actualización instalada' : phase === 'downloading' ? 'Actualizando Git Glam' : 'Hay novedades'}</strong>
-        <span className="update-toast-version">v{update.version}</span>
+        <span className="update-toast-version" title={`Versión instalada: v${update.currentVersion}`}>v{update.currentVersion} → v{update.version}</span>
       </div>
-      <p>{phase === 'downloading' ? 'Descargando e instalando la nueva versión…' : phase === 'ready' ? 'Reiniciando Git Glam…' : phase === 'error' ? error : 'Ya está disponible una nueva versión de Git Glam.'}</p>
+      <p>{phase === 'downloading' ? 'Descargando e instalando la nueva versión…' : phase === 'ready' ? 'Reiniciando Git Glam…' : phase === 'error' ? error : notes.length ? 'Esto es lo que incluye la nueva versión:' : 'Ya está disponible una nueva versión de Git Glam.'}</p>
+      {phase === 'available' && notes.length > 0 && <div className="update-toast-notes" tabIndex={0} aria-label="Novedades de la versión">
+        {notes.map(section => <section key={section.title}>
+          {section.title && <h4>{section.title}</h4>}
+          <ul>{section.items.map((item, i) => <li key={i}>{item}</li>)}</ul>
+        </section>)}
+      </div>}
       {phase === 'downloading' && <div className="update-toast-progress">
         <div className="update-toast-progress-label"><span>Progreso</span><span>{progress !== null ? `${progress}%` : 'En curso'}</span></div>
         <div className="update-toast-progress-track" role="progressbar" aria-label="Progreso de actualización" aria-valuemin={0} aria-valuemax={100} {...(progress !== null ? { 'aria-valuenow': progress } : {})}><span style={{ width: progress !== null ? `${progress}%` : '35%' }} /></div>

@@ -136,7 +136,7 @@ export interface ReleaseInfo { version: string; lastTag: string | null; commits:
 export interface GitGraphApi {
   isPackaged(): Promise<boolean>
   releaseInfo(): Promise<ReleaseInfo>
-  releaseRun(version: string): Promise<void>
+  releaseRun(version: string, skipBump?: boolean): Promise<void>
   onReleaseLog(callback: (line: string) => void): () => void
   onReleaseDone(callback: (result: { ok: boolean; error?: string }) => void): () => void
   onRestored(callback: () => void): () => void

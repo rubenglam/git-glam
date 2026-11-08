@@ -6,7 +6,7 @@ import { createGitGraphBridge } from './git-graph-bridge.ts'
 const routes: Record<string, (args: any[]) => [string, Record<string, unknown>]> = {
   'app:is-packaged': () => ['is_packaged', {}],
   'release:info': () => ['release_info', {}],
-  'release:run': ([version]) => ['release_run', { version }],
+  'release:run': ([version, skipBump]) => ['release_run', { version, skipBump }],
   'projects:status': ([paths]) => ['project_status', { paths }],
   'projects:add': () => ['project_add', {}],
   'projects:open': ([project, showRemote]) => ['project_open', { project, showRemote }],
