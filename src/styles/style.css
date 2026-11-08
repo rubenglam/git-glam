@@ -1075,3 +1075,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .project-menu-label{padding:5px 8px 3px;color:#7b8189;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 .project-menu-sep{height:1px;margin:5px 0;background:#d3d6da}
 .project-menu-button[aria-expanded=true]{background:#cacdd2}
+
+.project-group-actions{opacity:0;transition:opacity .12s}
+.project-group-heading:hover .project-group-actions,.project-group-heading:focus-within .project-group-actions{opacity:1}
+@media(hover:none){.project-group-actions{opacity:1}}
+.project-group-toggle span{color:#666c73}.project-card-text small{color:#666c73}.project-menu-label{color:#666c73}
+.project-card-main:hover .project-card-text strong{color:#111}

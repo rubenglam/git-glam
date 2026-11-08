@@ -10,7 +10,7 @@ import { BookOpen, Bot, BotMessageSquare, Lightbulb, CircleAlert, CircleCheck, C
 import { layout, orderHistory } from './lib/graph-layout.ts'
 import type { DiffState, GraphRow } from './types.ts'
 import { graphSegments } from './lib/graph-segments.ts'
-import { useBackgroundRefresh, useRefreshShortcut, useSearchShortcuts } from './hooks/app-effects.ts'
+import { useBackgroundRefresh, useReloadShortcut, useSearchShortcuts } from './hooks/app-effects.ts'
 import { applySetting } from './lib/settings-flow.ts'
 import { openUncachedProject } from './lib/project-flow.ts'
 import { useProjects } from './hooks/use-projects.ts'
@@ -358,7 +358,7 @@ function App() {
     onRefreshed: (data, state) => { projectCache.current.set(state.activeProject, { repo: data, showRemote: state.showRemote }); setRepo(data); setSelected(old => updatedSelection(data, old)) },
     onError: setError,
   })
-  useRefreshShortcut(() => { void load() }, Boolean(repo) && !busy && !showProjects && !showSettings)
+  useReloadShortcut()
   useEffect(() => { if (!repo || !selected) { setDiff({ text: '' }); return }; let active = true; setDiff({ loading: true, text: '' }); window.gitGraph.diff(repo.root, selected.hash).then(value => { if (active) setDiff({ text: value }) }).catch(e => { if (active) setDiff({ text: '', error: 'No se pudo cargar el diff: ' + (e.message || e) }) }); return () => { active = false } }, [repo?.root, selected?.hash])
   useSearchShortcuts(showSettings, () => setSearchOpen(true), () => setSelected(null))
   return <main className="app" data-density={layoutDensity}>

@@ -46,15 +46,13 @@ export function useBackgroundRefresh(options: BackgroundRefreshOptions) {
 
 const isTyping = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')
 
-// F5 reloads the repository (only when that makes sense; the key is always swallowed).
-export function useRefreshShortcut(refresh: () => void, enabled: boolean) {
-  const latest = useRef({ refresh, enabled })
-  latest.current = { refresh, enabled }
+// F5 reloads the whole app window.
+export function useReloadShortcut() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'F5' || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return
       event.preventDefault()
-      if (!event.repeat && latest.current.enabled) latest.current.refresh()
+      if (!event.repeat) window.location.reload()
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
