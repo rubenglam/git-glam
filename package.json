@@ -1,6 +1,8 @@
 {
   "name": "git-graph-desktop",
   "version": "0.4.0",
+  "author": "Ruben Bermudez Saez",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Git history explorer for Windows, built with Tauri and React",
