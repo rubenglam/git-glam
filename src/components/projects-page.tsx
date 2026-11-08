@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, Check, Folder, FolderGit2, FolderPlus, GitMerge, MoreHorizontal, Pencil, Plus, Search, Star, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Check, Folder, FolderGit2, FolderPlus, GitBranch, GitMerge, MoreHorizontal, Pencil, Plus, Search, Star, Trash2, X } from 'lucide-react'
 
 const shortPath = (path: string) => path.replace(/\\/g, '/').replace(/^(?:[A-Za-z]:)?\/(?:Users|home)\/[^/]+/, '~')
 const COLLAPSED_KEY = 'projects-collapsed-groups'
@@ -7,11 +7,28 @@ function loadCollapsed(): Set<string | null> {
   try { const raw = JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'); return new Set(Array.isArray(raw) ? raw : []) } catch { return new Set() }
 }
 
-export function ProjectsPage({ projects, folders, defaultProject, busy, onAdd, onOpen, onDefault, onRemove, onFolderAction, onMove }) {
+type SortMode = 'manual' | 'recent' | 'name'
+const SORT_KEY = 'projects-sort', OPENED_KEY = 'projects-last-opened'
+const projectName = (path: string) => path.split(/[\/]/).filter(Boolean).pop() || path
+function loadOpened(): Record<string, number> {
+  try { const raw = JSON.parse(localStorage.getItem(OPENED_KEY) || '{}'); return raw && typeof raw === 'object' ? raw : {} } catch { return {} }
+}
+function loadSort(): SortMode {
+  try { const raw = localStorage.getItem(SORT_KEY); return raw === 'recent' || raw === 'name' ? raw : 'manual' } catch { return 'manual' }
+}
+
+export function ProjectsPage({ projects, statuses = {}, folders, defaultProject, busy, onAdd, onOpen, onDefault, onRemove, onFolderAction, onMove }) {
   const [search, setSearch] = useState('')
   const dragProject = useRef<any>(null), [dragging, setDragging] = useState<any>(null), [dropGroup, setDropGroup] = useState(undefined)
   const endDrag = () => { dragProject.current = null; setDragging(null); setDropGroup(undefined) }
   const [collapsed, setCollapsed] = useState<Set<string | null>>(loadCollapsed), [folderDialog, setFolderDialog] = useState<any>(null), [folderError, setFolderError] = useState('')
+  const [sort, setSort] = useState<SortMode>(loadSort), [opened, setOpened] = useState(loadOpened)
+  const changeSort = (mode: SortMode) => { setSort(mode); try { localStorage.setItem(SORT_KEY, mode) } catch {} }
+  const openProject = (path: string) => {
+    setOpened(previous => { const next = { ...previous, [path]: Date.now() }; try { localStorage.setItem(OPENED_KEY, JSON.stringify(next)) } catch {} return next })
+    onOpen(path)
+  }
+  const sortProjects = (list: any[]) => sort === 'manual' ? list : [...list].sort((a, b) => sort === 'name' ? projectName(a.path).localeCompare(projectName(b.path), 'es', { sensitivity: 'base' }) : (opened[b.path] || 0) - (opened[a.path] || 0))
   const searchInput = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); searchInput.current?.focus(); searchInput.current?.select() } }
@@ -48,7 +65,7 @@ export function ProjectsPage({ projects, folders, defaultProject, busy, onAdd, o
       <div className="projects-page-actions"><button className="projects-new-folder" disabled={busy} onClick={() => { setFolderError(''); setFolderDialog({ type: 'create', name: '' }) }}><FolderPlus size={16}/> Nueva carpeta</button><button className="open-cta projects-add" disabled={busy} onClick={onAdd}><Plus size={16}/> Añadir proyecto</button></div>
     </div>
     <div className="projects-library">
-      <div className="projects-library-head"><div><h2>Repositorios <span>{projects.length}</span></h2></div><label className="projects-search"><Search size={15}/><input ref={searchInput} aria-label="Buscar proyectos" aria-keyshortcuts="Control+K Meta+K" placeholder="Buscar proyectos…  Ctrl K" onKeyDown={event => { if (event.key === 'Escape') { setSearch(''); event.currentTarget.blur() } }} value={search} onChange={event => setSearch(event.target.value)}/></label></div>
+      <div className="projects-library-head"><div><h2>Repositorios <span>{projects.length}</span></h2></div><label className="projects-search"><Search size={15}/><input ref={searchInput} aria-label="Buscar proyectos" aria-keyshortcuts="Control+K Meta+K" placeholder="Buscar proyectos…  Ctrl K" onKeyDown={event => { if (event.key === 'Escape') { setSearch(''); event.currentTarget.blur() } }} value={search} onChange={event => setSearch(event.target.value)}/></label><select className="projects-sort" aria-label="Ordenar proyectos" title="Ordenar proyectos" value={sort} onChange={event => changeSort(event.target.value as SortMode)}><option value="manual">Orden original</option><option value="recent">Recientes primero</option><option value="name">Nombre (A-Z)</option></select></div>
       {groups.length && (projects.length || folders.length) ? <div className="project-cards">{groups.map(group => <section className={'project-group'+(dropGroup === group.id ? ' drop-target' : '')} key={group.id || 'ungrouped'} onDragOver={event => {
         const source = projects.find(project => project.path === dragProject.current)
         if (!source || busy || (source.folderId || null) === group.id || (!source.folderId && group.id === null)) return
@@ -58,8 +75,8 @@ export function ProjectsPage({ projects, folders, defaultProject, busy, onAdd, o
         event.preventDefault(); endDrag(); onMove(path, group.id)
       }}>
         {(folders.length > 0 || group.id) && <div className="project-group-heading"><button className="project-group-toggle" aria-expanded={query ? true : !collapsed.has(group.id)} onClick={() => toggleGroup(group.id)}>{query || !collapsed.has(group.id) ? <ChevronDown size={15}/> : <ChevronRight size={15}/>}<Folder size={15}/><strong>{group.name}</strong><span>{group.projects.length}</span></button>{group.id && <div className="project-group-actions"><button className="tool-button" aria-label={'Renombrar carpeta ' + group.name} title="Renombrar carpeta" disabled={busy} onClick={() => { setFolderError(''); setFolderDialog({ type: 'rename', folder: group, name: group.name }) }}><Pencil size={14}/></button><button className="tool-button" aria-label={'Eliminar carpeta ' + group.name} title="Eliminar carpeta" disabled={busy} onClick={() => { setFolderError(''); setFolderDialog({ type: 'delete', folder: group, name: group.name }) }}><Trash2 size={14}/></button></div>}</div>}
-        {(query || !collapsed.has(group.id)) && <>{group.visible.length ? group.visible.map(project => <article className={'project-card'+(dragging === project.path ? ' dragging' : '')} key={project.path} draggable={!busy && folders.length > 0} onDragStart={event => { dragProject.current = project.path; setDragging(project.path); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', project.path) }} onDragEnd={endDrag}>
-          <button className="project-card-main" title={project.path} disabled={busy} onClick={() => onOpen(project.path)}><span className="project-card-icon"><FolderGit2 size={18}/></span><span className="project-card-text"><span className="project-name-line"><strong>{project.path.split(/[\\/]/).filter(Boolean).pop() || project.path}</strong></span><small title={project.path}>{shortPath(project.path)}</small></span><span className="project-open-label">Abrir <ChevronRight size={15}/></span></button>
+        {(query || !collapsed.has(group.id)) && <>{group.visible.length ? sortProjects(group.visible).map(project => <article className={'project-card'+(dragging === project.path ? ' dragging' : '')} key={project.path} draggable={!busy && folders.length > 0} onDragStart={event => { dragProject.current = project.path; setDragging(project.path); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', project.path) }} onDragEnd={endDrag}>
+          <button className="project-card-main" title={project.path} disabled={busy} onClick={() => openProject(project.path)}><span className="project-card-icon"><FolderGit2 size={18}/></span><span className="project-card-text"><span className="project-name-line"><strong>{project.path.split(/[\\/]/).filter(Boolean).pop() || project.path}</strong></span><small title={project.path}>{shortPath(project.path)}</small></span>{(() => { const status = (statuses as any)[project.path]; if (!status) return null; return <span className="project-status">{status.branch && <span className="project-status-chip" title={'Rama actual: ' + status.branch}><GitBranch size={11}/><span className="project-status-branch">{status.branch}</span></span>}{status.dirty > 0 && <span className="project-status-chip is-dirty" title={status.dirty + ' cambios sin confirmar'}>● {status.dirty}</span>}{status.ahead > 0 && <span className="project-status-chip" title={status.ahead + ' commits por subir'}>↑{status.ahead}</span>}{status.behind > 0 && <span className="project-status-chip" title={status.behind + ' commits por bajar'}>↓{status.behind}</span>}</span> })()}<span className="project-open-label">Abrir <ChevronRight size={15}/></span></button>
           <div className="project-card-actions"><button className={'default-button '+(defaultProject === project.path ? 'is-default' : '')} title={defaultProject === project.path ? 'Quitar como predeterminado' : 'Establecer como predeterminado'} aria-label={(defaultProject === project.path ? 'Quitar como predeterminado: ' : 'Establecer como predeterminado: ') + project.path} aria-pressed={defaultProject === project.path} disabled={busy} onClick={() => onDefault(project.path)}><Star size={15} fill={defaultProject === project.path ? 'currentColor' : 'none'}/></button><button className="tool-button project-menu-button" title="Más acciones" aria-label={'Más acciones: ' + project.path} aria-haspopup="menu" aria-expanded={menu?.path === project.path} disabled={busy} onClick={event => { const rect = event.currentTarget.getBoundingClientRect(); setMenu(menu?.path === project.path ? null : { path: project.path, top: rect.bottom + 4, right: window.innerWidth - rect.right }) }}><MoreHorizontal size={16}/></button></div>
         </article>) : <p className="folder-empty">{dragging && group.id === null ? 'Suelta aquí para sacar el proyecto de su carpeta.' : 'Esta carpeta aún no tiene proyectos.'}</p>}</>}
       </section>)}</div> : <div className="projects-empty"><span className="projects-empty-icon">{projects.length || folders.length ? <Search size={20}/> : <FolderGit2 size={20}/>}</span><strong>{projects.length || folders.length ? 'No hay coincidencias' : 'Todavía no hay proyectos'}</strong><span>{projects.length || folders.length ? 'Prueba con otro nombre o ruta.' : 'Añade un repositorio para empezar a explorar.'}</span>{!projects.length && !folders.length && <button className="projects-empty-add" disabled={busy} onClick={onAdd}>Añadir un proyecto <span>→</span></button>}</div>}

@@ -1051,3 +1051,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media(hover:none){.project-group-actions{opacity:1}}
 .project-group-toggle span{color:#a3abb2}.project-card-text small{color:#9aa1a8}.folder-empty{color:#9aa1a8}.project-menu-label{color:#9aa1a8}
 .project-card-main:hover .project-card-text strong{color:#fff}
+
+.project-status{display:flex;align-items:center;flex:none;gap:5px;margin-right:6px}
+.project-status-chip{display:inline-flex;align-items:center;gap:4px;max-width:150px;padding:2px 7px;border:1px solid #3a3f44;border-radius:999px;background:#25282c;color:#aab1b8;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.project-status-chip.is-dirty{border-color:#554a32;background:#373024;color:#dfc387}
+.projects-library-head{gap:10px}.projects-sort{height:34px;padding:0 8px;border:1px solid #3c4044;border-radius:8px;background:#25272a;color:#b8bec3;font-size:12px}
+.projects-library-head .projects-search{margin-left:auto}
+.project-status{flex:0 1 auto;min-width:0}.project-status-chip{min-width:0;flex:0 0 auto}.project-status-chip:first-child{flex:0 1 auto;max-width:240px}.project-status-chip svg{flex:none}.project-status-branch{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

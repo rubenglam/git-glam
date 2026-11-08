@@ -458,7 +458,7 @@ pub async fn project_status(app: AppHandle, paths: Vec<String>) -> Result<Value,
         let mut result=serde_json::Map::new();
         for dir in paths.into_iter().filter(|d|known.contains(d)){
             let run=|args:&[&str]|crate::history::git(Path::new(&dir),args,std::time::Duration::from_secs(15),16*1024*1024);
-            if let Ok(status)=run(&["status","--porcelain=v1","--untracked-files=normal","-z"]){let counts=run(&["rev-list","--left-right","--count","@{upstream}...HEAD"]).unwrap_or_default();let mut counts=counts.split_whitespace().map(|v|v.parse::<usize>().unwrap_or(0));let behind=counts.next().unwrap_or(0);let ahead=counts.next().unwrap_or(0);result.insert(dir,json!({"dirty":status.split('\0').filter(|s|!s.is_empty()).count(),"ahead":ahead,"behind":behind}));}
+            if let Ok(status)=run(&["status","--porcelain=v1","--untracked-files=normal","-z"]){let counts=run(&["rev-list","--left-right","--count","@{upstream}...HEAD"]).unwrap_or_default();let mut counts=counts.split_whitespace().map(|v|v.parse::<usize>().unwrap_or(0));let behind=counts.next().unwrap_or(0);let ahead=counts.next().unwrap_or(0);let branch=run(&["branch","--show-current"]).map(|b|b.trim().to_string()).unwrap_or_default();let branch=if branch.is_empty(){run(&["rev-parse","--short","HEAD"]).map(|h|h.trim().to_string()).unwrap_or_default()}else{branch};result.insert(dir,json!({"branch":branch,"dirty":status.split('\0').filter(|s|!s.is_empty()).count(),"ahead":ahead,"behind":behind}));}
         }Ok(Value::Object(result))
     }).await.map_err(|e|e.to_string())?
 }
