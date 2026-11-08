@@ -1058,3 +1058,5 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .projects-library-head{gap:10px}.projects-sort{height:34px;padding:0 8px;border:1px solid #3c4044;border-radius:8px;background:#25272a;color:#b8bec3;font-size:12px}
 .projects-library-head .projects-search{margin-left:auto}
 .project-status{flex:0 1 auto;min-width:0}.project-status-chip{min-width:0;flex:0 0 auto}.project-status-chip:first-child{flex:0 1 auto;max-width:240px}.project-status-chip svg{flex:none}.project-status-branch{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.projects-group-toggle{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:1px solid #3c4044;border-radius:8px;background:#25272a;color:#b8bec3;font-size:12px;white-space:nowrap}.projects-group-toggle:hover{background:#2f3236}
+.project-folder-tag{display:inline-flex;align-items:center;gap:4px;flex:none;max-width:140px;padding:1px 6px;border-radius:5px;background:#2b2e32;color:#9aa1a8;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
