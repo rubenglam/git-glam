@@ -22,12 +22,14 @@ export function updatedSelection<R extends RepoLike>(repo: R, selected: Selectab
   return list?.find(item => item.hash === selected.hash) || null
 }
 
-// Runs a working-tree task (stage, unstage, hunk...) and always refreshes afterwards.
+// Runs a working-tree task (stage, unstage, hunk...) and refreshes afterwards.
+// When `watched` is true the file watcher reloads the repo on its own after the task changes git's index,
+// so the explicit refresh is skipped (it would load the repository twice). A failure still refreshes to clear errors.
 // Returns the task failure (if any) so the caller can show it *after* the refresh, which clears errors.
-export async function applyChange(root: string, task: (root: string) => Promise<unknown>, refresh: () => Promise<void>): Promise<string> {
+export async function applyChange(root: string, task: (root: string) => Promise<unknown>, refresh: () => Promise<void>, watched = false): Promise<string> {
   let failure = ''
   try { await task(root) } catch (error) { failure = errorMessage(error) }
-  await refresh()
+  if (failure || !watched) await refresh()
   return failure
 }
 
@@ -92,8 +94,17 @@ export interface BackgroundApi {
 // API errors propagate to the caller.
 export async function fetchAndReload(api: BackgroundApi, root: string, latest: () => LatestState, request: () => number): Promise<{ data: any, state: LatestState } | null> {
   const started = request()
-  const stale = (state: LatestState) => started !== request() || state.busy || state.repo?.root !== root
   await api.fetch(root)
+  return loadIfCurrent(api, root, latest, request, started)
+}
+
+// Reload without network access, used when files change on disk (the same contract as fetchAndReload).
+export async function reloadLocal(api: Pick<BackgroundApi, 'load'>, root: string, latest: () => LatestState, request: () => number): Promise<{ data: any, state: LatestState } | null> {
+  return loadIfCurrent(api, root, latest, request, request())
+}
+
+async function loadIfCurrent(api: Pick<BackgroundApi, 'load'>, root: string, latest: () => LatestState, request: () => number, started: number): Promise<{ data: any, state: LatestState } | null> {
+  const stale = (state: LatestState) => started !== request() || state.busy || state.repo?.root !== root
   const now = latest()
   if (stale(now)) return null
   const data = await api.load(root, now.showRemote, now.repo!.commits.length)

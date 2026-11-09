@@ -295,6 +295,9 @@ pub async fn branch_operation(
             "merge" => {
                 run(dir, &["merge", "--no-edit", &reference])?;
             }
+            "merge-ff-only" => {
+                run(dir, &["merge", "--ff-only", &reference])?;
+            }
             "fetch" => {
                 let (remote, branch) = remote_parts(dir, &reference)?;
                 validate_name(dir, &branch)?;

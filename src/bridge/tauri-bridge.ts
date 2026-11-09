@@ -5,6 +5,8 @@ import { createGitGraphBridge } from './git-graph-bridge.ts'
 // Maps the renderer-facing API to Tauri commands and events.
 const routes: Record<string, (args: any[]) => [string, Record<string, unknown>]> = {
   'app:is-packaged': () => ['is_packaged', {}],
+  'repo:watch': ([dir]) => ['watch_repo', { dir }],
+  'repo:unwatch': () => ['unwatch_repo', {}],
   'release:info': () => ['release_info', {}],
   'release:run': ([version, skipBump]) => ['release_run', { version, skipBump }],
   'projects:status': ([paths]) => ['project_status', { paths }],

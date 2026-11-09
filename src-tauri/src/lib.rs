@@ -23,6 +23,7 @@ mod tags;
 mod token_migration;
 mod tokens;
 mod ui_migration;
+mod watch;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -36,9 +37,12 @@ pub fn run() {
         .manage(data_store::DataLock::default())
         .manage(projects::ProjectsLock::default())
         .manage(WindowState::default())
+        .manage(watch::RepoWatch::default())
         .invoke_handler(tauri::generate_handler![
             history::history,
             repo::load_repo,
+            watch::watch_repo,
+            watch::unwatch_repo,
             staging::stage_paths,
             staging::unstage_paths,
             staging::staged_diff,

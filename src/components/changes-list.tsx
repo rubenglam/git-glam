@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Folder, FolderOpen, ListTree, Minus, Plus, Sparkles, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Folder, FolderOpen, ListTree, LoaderCircle, Maximize2, Minimize2, Minus, Plus, Sparkles, Undo2 } from 'lucide-react'
 import { FileIcon } from './file-icon.tsx'
 import { buildFileTree } from '../lib/file-tree.ts'
 import { sortChanges, statusLetter } from '../lib/change-sort.ts'
@@ -49,7 +49,7 @@ function TreeRows({ nodes, depth, parentKey, byPath, collapsed, onCollapse, ...r
   })
 }
 
-function Section({ title, staged, items, open, onOpen, selected, busy, tree, sort, viewToggle, onPick, onToggle, onDiscard, onContext, onReview, empty }: any) {
+function Section({ title, staged, items, open, onOpen, selected, busy, tree, sort, viewToggle, onPick, onToggle, onDiscard, onContext, onReview, onMaximize, maximized, empty }: any) {
   const [collapsed, setCollapsed] = useState(() => new Set())
   const flip = key => setCollapsed(old => { const next = new Set(old); if (next.has(key)) next.delete(key); else next.add(key); return next })
   const row = { staged, selected, busy, onPick, onToggle, onDiscard, onContext }
@@ -58,6 +58,7 @@ function Section({ title, staged, items, open, onOpen, selected, busy, tree, sor
       <button className="section-toggle changes-heading" aria-expanded={open} onClick={() => onOpen(!open)}>{open ? <ChevronDown size={15}/> : <ChevronRight size={15}/>} {title} <span className="change-count">{items.length}</span></button>
       {viewToggle}
       {onReview && <button className="change-toggle" disabled={busy} title="Resumir cambios preparados con IA" aria-label="Resumir cambios preparados con IA" onClick={onReview}><Sparkles size={14}/></button>}
+      {onMaximize && <button className="change-toggle" aria-pressed={maximized} title={maximized ? 'Restaurar el tamaño de preparados' : 'Ocupar todo el panel con preparados'} aria-label={maximized ? 'Restaurar el tamaño de preparados' : 'Ocupar todo el panel con preparados'} onClick={onMaximize}>{maximized ? <Minimize2 size={14}/> : <Maximize2 size={14}/>}</button>}
       {items.length > 0 && <DiscardButton busy={busy} paths={items.map(change => change.path)} label="todos los cambios" onDiscard={onDiscard}/>}
       {items.length > 0 && <ToggleButton staged={staged} busy={busy} paths={items.map(change => change.path)} label={staged ? 'todo' : 'todos los cambios'} onToggle={onToggle}/>}
     </div>
@@ -92,25 +93,30 @@ function ViewMenu({ tree, sort, onTree, onSort }) {
   </div>
 }
 
-export function ChangesList({ changes, selected, busy, onPick, onStage, onUnstage, onDiscard, onContext, onReview }) {
+export function ChangesList({ changes, selected, busy, pending, onPick, onStage, onUnstage, onDiscard, onContext, onReview }: any) {
   const [stagedOpen, setStagedOpen] = useState(true), [unstagedOpen, setUnstagedOpen] = useState(true)
   const [tree, setTree] = useState(() => stored('changesView', ['tree', 'list'], 'list') === 'tree'), [sort, setSort] = useState(() => stored('changesSort', SORTS.map(([mode]) => mode), 'path'))
+  const [stagedFull, setStagedFull] = useState(false)
+  const fullStaged = stagedFull && changes.some(isStaged)
   const staged = changes.filter(isStaged), unstaged = changes.filter(isUnstaged)
   const viewToggle = <ViewMenu tree={tree} sort={sort} onTree={value => { setTree(value); remember('changesView', value ? 'tree' : 'list') }} onSort={mode => { setSort(mode); remember('changesSort', mode) }}/>
   const area = useRef<any>(null), pane = useRef<any>(null), drag = useRef<any>(null)
   const [height, setHeight] = useState(() => { try { const value = Number(localStorage.getItem('stagedHeight')); return value >= MIN_PANE ? value : null } catch { return null } })
   const maxHeight = () => Math.max(MIN_PANE, (area.current?.clientHeight || 600) - MIN_PANE - 40)
   const resize = value => { const next = Math.max(MIN_PANE, Math.min(Math.round(value), maxHeight())); setHeight(next); remember('stagedHeight', String(next)) }
-  const split = staged.length > 0 && stagedOpen && unstagedOpen
+  const split = staged.length > 0 && stagedOpen && unstagedOpen && !fullStaged
   const finish = event => { if (drag.current?.id === event.pointerId) { drag.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId) } }
-  return <div className="changes-area" ref={area}>
-    {staged.length > 0 && <div className="changes-pane" ref={pane} style={stagedOpen ? height === null ? { flex: '0 1 auto', maxHeight: '60%' } : { flex: `0 0 ${Math.min(height, maxHeight())}px` } : { flex: 'none' }}><Section title="PREPARADOS" staged items={staged} open={stagedOpen} onOpen={setStagedOpen} selected={selected} busy={busy} tree={tree} sort={sort} viewToggle={viewToggle} onPick={onPick} onToggle={onUnstage} onContext={onContext} onReview={onReview}/></div>}
+  return <>
+  <div className="changes-area" ref={area} style={changes.length === 0 ? { justifyContent: 'flex-end' } : undefined}>
+    {staged.length > 0 && <div className="changes-pane" ref={pane} style={fullStaged && stagedOpen ? { flex: '1 1 0' } : stagedOpen ? height === null ? { flex: '0 1 auto', maxHeight: '60%' } : { flex: `0 0 ${Math.min(height, maxHeight())}px` } : { flex: 'none' }}><Section title="PREPARADOS" staged items={staged} open={stagedOpen} onOpen={setStagedOpen} selected={selected} busy={busy} tree={tree} sort={sort} viewToggle={viewToggle} onPick={onPick} onToggle={onUnstage} onContext={onContext} onReview={onReview} maximized={fullStaged} onMaximize={() => setStagedFull(value => !value)}/></div>}
     {split && <div className="cd-sep cd-sep-row" role="separator" tabIndex={0} aria-orientation="horizontal" aria-label="Ajustar altura de los cambios preparados" aria-valuemin={MIN_PANE} aria-valuemax={maxHeight()} aria-valuenow={Math.round(pane.current?.offsetHeight || 0)} title="Arrastra para redimensionar; doble clic para restablecer"
       onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); drag.current = { id: event.pointerId, y: event.clientY, h: pane.current.offsetHeight }; event.currentTarget.setPointerCapture(event.pointerId) }}
       onPointerMove={event => { if (drag.current?.id === event.pointerId) resize(drag.current.h + event.clientY - drag.current.y) }}
       onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={() => { drag.current = null }}
       onDoubleClick={() => { setHeight(null); remember('stagedHeight', '') }}
       onKeyDown={event => { const now = pane.current.offsetHeight, step = event.shiftKey ? 40 : 10; if (event.key === 'ArrowDown') resize(now + step); else if (event.key === 'ArrowUp') resize(now - step); else return; event.preventDefault() }}/>}
-    <div className="changes-pane" style={{ flex: unstagedOpen ? '1 1 0' : 'none' }}><Section title="CAMBIOS" staged={false} items={unstaged} open={unstagedOpen} onOpen={setUnstagedOpen} selected={selected} busy={busy} tree={tree} sort={sort} viewToggle={staged.length ? null : viewToggle} onPick={onPick} onToggle={onStage} onDiscard={onDiscard} onContext={onContext} empty={staged.length ? 'Todo está preparado.' : 'No hay cambios pendientes.'}/></div>
+    <div className="changes-pane" style={{ flex: unstagedOpen && !fullStaged && changes.length > 0 ? '1 1 0' : 'none' }}><Section title="CAMBIOS" staged={false} items={unstaged} open={unstagedOpen && !fullStaged && changes.length > 0} onOpen={value => { if (fullStaged) setStagedFull(false); setUnstagedOpen(value) }} selected={selected} busy={busy} tree={tree} sort={sort} viewToggle={staged.length ? null : viewToggle} onPick={onPick} onToggle={onStage} onDiscard={onDiscard} onContext={onContext} empty={staged.length ? 'Todo está preparado.' : 'No hay cambios pendientes.'}/></div>
   </div>
+  {pending && <div className="changes-progress" role="status" aria-live="polite"><LoaderCircle className="spin" size={14} aria-hidden="true"/><span>{pending}</span></div>}
+  </>
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { errorMessage, fetchAndReload, type LatestState } from '../lib/repo-flow.ts'
+import { errorMessage, fetchAndReload, reloadLocal, type LatestState } from '../lib/repo-flow.ts'
 
 interface BackgroundRefreshOptions {
   state: LatestState
@@ -44,7 +44,35 @@ export function useBackgroundRefresh(options: BackgroundRefreshOptions) {
   }, [options.autoFetchMinutes, root, options.paused])
 }
 
-const isTyping = () => ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')
+// Reloads the open repository when its files or git metadata change on disk, like VS Code's source control view.
+// Unlike auto-fetch this never touches the network, so it runs as often as the files change.
+// Root whose file watcher is active. The backend keeps one watcher at a time.
+let watchedRoot: string | null = null
+export const isRepoWatched = (root: string) => watchedRoot === root
+
+export function useRepoWatch(options: Omit<BackgroundRefreshOptions, 'autoFetchMinutes'>) {
+  const latest = useRef(options)
+  latest.current = options
+  const root = options.state.repo?.root
+  useEffect(() => {
+    if (!root) { watchedRoot = null; void window.gitGraph.unwatch().catch(() => {}); return }
+    // Without a watcher the periodic and restore refreshes still apply, so failures are silent.
+    void window.gitGraph.watch(root).then(() => { watchedRoot = root }).catch(() => {})
+    const stopWatching = () => { if (watchedRoot === root) watchedRoot = null }
+    let ticket = 0
+    const state = () => latest.current.state
+    const off = window.gitGraph.onRepoChanged(changed => {
+      if (changed !== root) return
+      const current = ++ticket
+      reloadLocal(window.gitGraph, root, state, () => latest.current.request.current)
+        .then(result => { if (result && current === ticket) latest.current.onRefreshed(result.data, result.state) })
+        .catch(() => { /* A failed background reload is silent; the next change retries. */ })
+    })
+    return () => { off(); stopWatching() }
+  }, [root])
+}
+
+const isTyping = () =>['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')
 
 // F5 reloads the whole app window.
 export function useReloadShortcut() {

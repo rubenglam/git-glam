@@ -140,6 +140,9 @@ export interface GitGraphApi {
   onReleaseLog(callback: (line: string) => void): () => void
   onReleaseDone(callback: (result: { ok: boolean; error?: string }) => void): () => void
   onRestored(callback: () => void): () => void
+  watch(path: string): Promise<void>
+  unwatch(): Promise<void>
+  onRepoChanged(callback: (path: string) => void): () => void
   fileAction(path: string, file: string, action: string): Promise<void>
   openFolder(path: string): Promise<void>
   open(): Promise<any>

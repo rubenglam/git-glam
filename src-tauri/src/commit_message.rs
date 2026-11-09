@@ -19,7 +19,7 @@ struct Run {
 #[derive(Default)]
 pub struct MessageRuns(Mutex<HashMap<String, Arc<Run>>>);
 const SYSTEM: &str = "Eres un generador de mensajes de commit. Recibes un diff de git por la entrada estándar. Responde SOLO con el mensaje de commit en formato Conventional Commits (tipo(ámbito opcional): resumen en imperativo, máximo 72 caracteres), opcionalmente seguido de una línea en blanco y un cuerpo breve. Sin comillas, sin bloques de código, sin explicaciones. Escribe el mensaje en inglés.";
-fn changes(dir: &Path) -> Result<String, String> {
+fn changes(dir: &Path, limit: usize) -> Result<String, String> {
     let run = |args: &[&str]| git(dir, args, Duration::from_secs(60), 16 * 1024 * 1024);
     let staged = !run(&["diff", "--cached", "--name-only", "-z"])?.is_empty();
     let mut args = vec!["-c", "core.quotepath=false", "diff"];
@@ -50,14 +50,20 @@ fn changes(dir: &Path) -> Result<String, String> {
     if text.trim().is_empty() {
         return Err("No hay cambios para describir".into());
     }
-    let mut result: String = text.chars().take(12000).collect();
-    if text.chars().count() > 12000 {
+    let mut result: String = text.chars().take(limit).collect();
+    if text.chars().count() > limit {
         result.push_str("\n[…recortado]");
     }
     Ok(result)
 }
-fn generate(dir: &str, model: &str, run: Arc<Run>, program: &Path) -> Result<String, String> {
-    let input = changes(Path::new(dir))?;
+fn generate(
+    dir: &str,
+    model: &str,
+    limit: usize,
+    run: Arc<Run>,
+    program: &Path,
+) -> Result<String, String> {
+    let input = changes(Path::new(dir), limit)?;
     if run.cancelled.load(Ordering::SeqCst) {
         return Err("Generación cancelada".into());
     }
@@ -70,6 +76,12 @@ fn generate(dir: &str, model: &str, run: Arc<Run>, program: &Path) -> Result<Str
             "--tools",
             "",
             "--no-session-persistence",
+            "--disable-slash-commands",
+            "--strict-mcp-config",
+            "--mcp-config",
+            "{\"mcpServers\":{}}",
+            "--effort",
+            "low",
             "--system-prompt",
             SYSTEM,
         ])
@@ -178,6 +190,7 @@ pub async fn generate_message(app: AppHandle, dir: String, id: String) -> Result
         return Err("Identificador no válido".into());
     }
     let model = crate::settings::commit_model(&app)?;
+    let limit = crate::settings::commit_diff_limit(&app)?;
     let run = Arc::new(Run {
         cancelled: AtomicBool::new(false),
         child: Mutex::new(None),
@@ -192,7 +205,7 @@ pub async fn generate_message(app: AppHandle, dir: String, id: String) -> Result
     }
     let app_clone = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let result = generate(&dir, &model, run, Path::new("claude"));
+        let result = generate(&dir, &model, limit, run, Path::new("claude"));
         if let Ok(mut m) = app_clone.state::<MessageRuns>().0.lock() {
             m.remove(&id);
         }
@@ -227,9 +240,10 @@ mod tests {
                 .unwrap()
                 .success()
         );
-        assert!(changes(d).is_err());
+        assert!(changes(d, 12000).is_err());
         fs::write(d.join("new.txt"), "hello").unwrap();
-        assert!(changes(d).unwrap().contains("Nuevo archivo: new.txt"));
+        assert!(changes(d, 12000).unwrap().contains("Nuevo archivo: new.txt"));
+        assert!(changes(d, 5).unwrap().ends_with("[…recortado]"));
     }
 }
 #[cfg(test)]
@@ -268,7 +282,7 @@ mod process_tests {
             cancelled: AtomicBool::new(false),
             child: Mutex::new(None),
         });
-        let message = generate(repo.to_str().unwrap(), "test-model", run, &binary).unwrap();
+        let message = generate(repo.to_str().unwrap(), "test-model", 4000, run, &binary).unwrap();
         assert_eq!(message, "feat: add sample");
     }
 }

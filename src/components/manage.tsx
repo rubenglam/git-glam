@@ -76,9 +76,13 @@ export function ManageDialog({ request, root, onClose, onDone }) {
     return <FormDialog title="Checkout de rama remota" description={`Se creará una rama local que sigue a ${branch.name} y se cambiará a ella.`} fields={[{ key: 'name', label: 'Nombre de la rama local', initial: branch.name.slice(branch.name.indexOf('/') + 1) }]} required={['name']} confirmLabel="Crear y cambiar" onSubmit={values => api().checkoutRemote(root, branch.ref, values.name.trim())} onCancel={onClose} onDone={done('Rama local creada')}/>
   }
   if (kind === 'delete-remote') return <ConfirmDialog title="Borrar rama remota" description={`Se ejecutará «git push --delete» y la rama ${request.branch.name} desaparecerá del servidor para todo el equipo.`} confirmLabel="Borrar del remoto" onConfirm={() => api().deleteRemoteBranch(root, request.branch.ref)} onCancel={onClose} onDone={done('Rama remota borrada')}/>
-  if (kind === 'branch-merge' || kind === 'branch-pull' || kind === 'branch-fetch') {
-    const { branch } = request, op = kind.slice(7), label = { merge: 'Merge', pull: 'Pull', fetch: 'Fetch' }[op]
-    const description = { merge: `Se fusionará «${branch.name}» en la rama actual.`, pull: `Se traerán e integrarán en la rama actual los cambios de «${branch.name}».`, fetch: `Se actualizará la rama local «${branch.name.slice(branch.name.indexOf('/') + 1)}» desde ${branch.name} (solo avance rápido).` }[op]
+  if (kind === 'branch-merge') {
+    const { branch } = request
+    return <FormDialog title="Merge" description={`Se fusionará «${branch.name}» en la rama actual.`} checks={[{ key: 'ffOnly', label: 'Solo avance rápido (--ff-only): falla si no puede avanzar sin crear un commit de merge' }]} confirmLabel="Merge" onSubmit={values => api().branchOp(root, values.ffOnly ? 'merge-ff-only' : 'merge', branch.ref)} onCancel={onClose} onDone={done('Merge completado')}/>
+  }
+  if (kind === 'branch-pull' || kind === 'branch-fetch') {
+    const { branch } = request, op = kind.slice(7), label = { pull: 'Pull', fetch: 'Fetch' }[op]
+    const description = { pull: `Se traerán e integrarán en la rama actual los cambios de «${branch.name}».`, fetch: `Se actualizará la rama local «${branch.name.slice(branch.name.indexOf('/') + 1)}» desde ${branch.name} (solo avance rápido).` }[op]
     return <ConfirmDialog title={label} description={description} confirmLabel={label} danger={false} onConfirm={() => api().branchOp(root, op, branch.ref)} onCancel={onClose} onDone={done(label + ' completado')}/>
   }
   if (kind === 'stash-create') return <FormDialog title="Guardar cambios en un stash" description="Guarda los cambios locales y deja el directorio de trabajo limpio." fields={[{ key: 'message', label: 'Mensaje (opcional)', placeholder: 'WIP: …' }]} checks={[{ key: 'includeUntracked', label: 'Incluir archivos sin seguimiento', initial: true }, { key: 'keepIndex', label: 'Conservar los cambios ya preparados en el área de preparación', initial: false }]} confirmLabel="Guardar stash" onSubmit={values => api().stashPush(root, values)} onCancel={onClose} onDone={done('Stash creado')}/>

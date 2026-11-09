@@ -19,7 +19,8 @@
         "fullscreen": false,
         "minWidth": 900,
         "minHeight": 600,
-        "decorations": false
+        "decorations": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {

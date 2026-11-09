@@ -9,7 +9,7 @@ use tauri::{AppHandle, Manager, State};
 #[derive(Default)]
 pub struct SettingsLock(Mutex<()>);
 fn defaults() -> Value {
-    json!({"showAI":true,"showAIAgent":true,"showAIReview":true,"showAICommit":true,"showAIImprovements":true,"showRemote":true,"leftOpen":true,"rightOpen":true,"explorerIconsOnly":false,"groupTabs":false,"showUngroupedLabel":false,"showHeadBadge":true,"tabLabelWidth":220,"autoFetchMinutes":0,"layoutDensity":"comfortable","theme":"dark","branchPalette":{"preset":"classic","custom":["#009ce9","#e30094","#00d625","#e69a00","#aa00e8","#ee4c4c","#00cabc"]},"agentModel":"claude-sonnet-5-5","agentEffort":"medium","chatModel":"","summaryModel":"claude-haiku-5-5","reviewModel":"","commitModel":"claude-haiku-5-5","improvementsModel":""})
+    json!({"showAI":true,"showAIAgent":true,"showAIReview":true,"showAICommit":true,"showAIImprovements":true,"showRemote":true,"leftOpen":true,"rightOpen":true,"explorerIconsOnly":false,"groupTabs":false,"showUngroupedLabel":false,"showHeadBadge":true,"tabLabelWidth":220,"autoFetchMinutes":0,"layoutDensity":"comfortable","theme":"dark","branchPalette":{"preset":"classic","custom":["#009ce9","#e30094","#00d625","#e69a00","#aa00e8","#ee4c4c","#00cabc"]},"agentModel":"claude-sonnet-5-5","agentEffort":"medium","chatModel":"","summaryModel":"claude-haiku-5-5","reviewModel":"","commitModel":"claude-haiku-5-5","commitSpeed":"normal","improvementsModel":""})
 }
 fn valid(key: &str, value: &Value) -> bool {
     let models = [
@@ -26,6 +26,9 @@ fn valid(key: &str, value: &Value) -> bool {
         "agentEffort" => value
             .as_str()
             .is_some_and(|v| ["low", "medium", "high", "xhigh", "max"].contains(&v)),
+        "commitSpeed" => value
+            .as_str()
+            .is_some_and(|v| ["normal", "fast"].contains(&v)),
         "theme" => value
             .as_str()
             .is_some_and(|v| ["light", "dark"].contains(&v)),
@@ -210,6 +213,12 @@ mod tests {
         write(&f, &state).unwrap();
         assert_eq!(read(&f).unwrap(), state);
     }
+}
+
+/// Maximum number of characters of the diff sent to the commit-message generator.
+pub(crate) fn commit_diff_limit(app: &AppHandle) -> Result<usize, String> {
+    let state = read(&path(app)?)?;
+    Ok(if state["commitSpeed"].as_str() == Some("fast") { 4000 } else { 12000 })
 }
 
 pub(crate) fn commit_model(app: &AppHandle) -> Result<String, String> {

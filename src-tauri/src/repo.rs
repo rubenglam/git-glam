@@ -39,9 +39,11 @@ pub(crate) fn load_inner(
         .to_owned();
     let root_path = Path::new(&root);
     let branch = quick(root_path, &["branch", "--show-current"])?;
+    // --no-optional-locks: status must not rewrite .git/index, or the file watcher would reload forever.
     let status = quick(
         root_path,
         &[
+            "--no-optional-locks",
             "status",
             "--porcelain=v1",
             "--no-renames",
