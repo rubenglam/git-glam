@@ -1,6 +1,6 @@
 [package]
 name = "git-glam-tauri"
-version = "0.6.0"
+version = "0.6.1"
 description = "Git Glam desktop host"
 authors = ["RubenGlam"]
 license = "MIT"
